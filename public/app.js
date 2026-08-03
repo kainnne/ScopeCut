@@ -365,15 +365,42 @@
   }
 
   // ---------- Generate ----------
+  let elapsedTimer = null;
+  let elapsedStartedAt = 0;
+
   function addProgress(message) {
     const li = document.createElement('li');
     li.textContent = message;
     $('#progress-list').appendChild(li);
   }
 
+  /** 1s / 2s / … / 3m40s / 3m41s */
   function fmtElapsed(ms) {
-    const s = Math.round(ms / 1000);
-    return s >= 60 ? `${Math.floor(s / 60)} 分 ${s % 60} 秒` : `${s} 秒`;
+    const s = Math.max(0, Math.floor(ms / 1000));
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return `${m}m${r}s`;
+  }
+
+  function setElapsedText(ms) {
+    $('#elapsed').textContent = `已經過 ${fmtElapsed(ms)}（通常約 1–5 分鐘，請稍候）`;
+  }
+
+  function startElapsedClock() {
+    stopElapsedClock();
+    elapsedStartedAt = Date.now();
+    setElapsedText(0);
+    elapsedTimer = setInterval(() => {
+      setElapsedText(Date.now() - elapsedStartedAt);
+    }, 1000);
+  }
+
+  function stopElapsedClock() {
+    if (elapsedTimer) {
+      clearInterval(elapsedTimer);
+      elapsedTimer = null;
+    }
   }
 
   async function runGenerate() {
@@ -389,6 +416,7 @@
     $('#result-card').classList.add('hidden');
     $('#error-card').classList.add('hidden');
     addProgress('已送出…');
+    startElapsedClock();
 
     try {
       const payload = {
@@ -432,9 +460,7 @@
             continue;
           }
           if (ev.type === 'status') addProgress(ev.message);
-          else if (ev.type === 'tick') {
-            $('#elapsed').textContent = `已經過 ${fmtElapsed(ev.elapsedMs)}`;
-          } else if (ev.type === 'done') {
+          else if (ev.type === 'done') {
             finished = true;
             showResult(ev);
           } else if (ev.type === 'error') {
@@ -448,6 +474,7 @@
       showError(err.message);
       panel.classList.remove('hidden');
     } finally {
+      stopElapsedClock();
       $('#progress-card').classList.add('hidden');
     }
   }
@@ -465,7 +492,7 @@
       ],
       [
         '上線網址',
-        `<a href="${escapeHtml(ev.pageUrl)}" target="_blank" rel="noopener">${escapeHtml(ev.pageUrl)}</a>`,
+        `<a href="${escapeHtml(ev.pageUrl)}" target="_blank" rel="noopener">${escapeHtml(ev.pageUrl)}</a><br><span class="muted">GitHub Pages 約需 2 分鐘才會更新，若現在打不開請稍後再重整。</span>`,
       ],
       ['耗時', `${fmtElapsed(ev.totalElapsedMs)}`],
     ];
