@@ -3,83 +3,89 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>收斂一下 ScopeCut</title>
-  <link rel="stylesheet" href="/style.css" />
+  <title>ScopeCut</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./style.css" />
 </head>
-<body>
+<body class="bg-blobs">
   <header class="site-header">
     <div class="wrap">
-      <h1>收斂一下 <span class="en">ScopeCut</span></h1>
-      <p class="tagline">把突然想做的事情,包裝成 Codex 一次能完成的完整專案。</p>
+      <h1>ScopeCut</h1>
+      <p class="tagline">Design by Kainnne</p>
     </div>
   </header>
 
   <main class="wrap">
-    <!-- 登入 -->
-    <section id="login-view" class="card login-card hidden">
-      <h2>登入</h2>
-      <p class="muted">這是本機工具,登入後才能使用 Codex 與推送 WikiNB。</p>
-      <form id="login-form">
-        <label>
-          帳號
-          <input type="text" id="login-user" autocomplete="username" required />
-        </label>
-        <label>
-          密碼
-          <input type="password" id="login-pass" autocomplete="current-password" required />
-        </label>
-        <p id="login-error" class="error hidden"></p>
-        <button type="submit" class="btn primary" id="login-btn">登入</button>
-      </form>
+    <!-- 登入：帳密 → 驗證碼 -->
+    <section id="login-view" class="glass-card login-card hidden">
+      <div id="step-credentials">
+        <h2>登入</h2>
+        <form id="login-form">
+          <label>
+            帳號
+            <input type="text" id="login-user" autocomplete="username" required />
+          </label>
+          <label>
+            密碼
+            <input type="password" id="login-pass" autocomplete="current-password" required />
+          </label>
+          <p id="login-error" class="error hidden"></p>
+          <button type="submit" class="btn-primary" id="login-btn">登入並寄送驗證碼</button>
+        </form>
+      </div>
+
+      <div id="step-verify" class="hidden">
+        <h2>輸入驗證碼</h2>
+        <p id="verify-hint" class="muted"></p>
+        <form id="verify-form">
+          <label>
+            六位數驗證碼
+            <input type="text" id="login-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required />
+          </label>
+          <p id="verify-error" class="error hidden"></p>
+          <button type="submit" class="btn-primary" id="verify-btn">驗證並進入</button>
+          <button type="button" class="btn-ghost" id="resend-btn">重新寄送</button>
+          <button type="button" class="btn-ghost" id="back-credentials">返回</button>
+        </form>
+      </div>
     </section>
 
-    <!-- 主畫面 -->
+    <!-- 主畫面：分步精靈 -->
     <section id="app-view" class="hidden">
-      <div class="card">
-        <div class="card-head">
-          <h2>你現在突然想做什麼?</h2>
-          <button class="btn ghost small" id="logout-btn">登出</button>
+      <div class="wizard-top">
+        <div class="progress-wrap" id="progress-wrap">
+          <div class="progress-meta">
+            <span id="progress-label">1 / 1</span>
+            <button type="button" class="btn-ghost small" id="logout-btn">登出</button>
+          </div>
+          <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
         </div>
-        <textarea id="idea" rows="4" maxlength="1000"
-          placeholder="例如:我想做一個輸入心情後,幫我挑一個一小時內可以完成的小網站。"></textarea>
       </div>
 
-      <div id="option-groups"></div>
+      <div id="wizard-panel" class="glass-card wizard-panel"></div>
 
-      <div class="card">
-        <h3>額外補充(選填)</h3>
-        <textarea id="extra-notes" rows="3" maxlength="1000"
-          placeholder="任何選項沒涵蓋到的要求,直接寫在這裡,會一併包進任務合約。"></textarea>
-      </div>
-
-      <div class="card action-card">
-        <p class="muted">按下後:Codex 會把想法收斂成完整專案合約 → 存到本機 WikiNB 的 <code>wiki/Projects/</code> → 自動 commit 並推送上線。頁面不會顯示合約內容,完成後只告訴你存去哪了。</p>
-        <button class="btn primary big" id="generate-btn">幫我組成完整任務並存進 WikiNB</button>
-      </div>
-
-      <div class="card hidden" id="progress-card">
+      <div class="glass-card hidden" id="progress-card">
         <h3>執行中…</h3>
         <ul id="progress-list"></ul>
         <p class="muted" id="elapsed"></p>
       </div>
 
-      <div class="card hidden result-ok" id="result-card">
-        <h3>完成。做到這裡就停,這已經是一個完整任務合約。</h3>
+      <div class="glass-card hidden result-ok" id="result-card">
+        <h3>完成</h3>
         <dl id="result-detail"></dl>
+        <button type="button" class="btn-ghost" id="again-btn">再做一次</button>
       </div>
 
-      <div class="card hidden result-err" id="error-card">
+      <div class="glass-card hidden result-err" id="error-card">
         <h3>失敗了</h3>
         <p id="error-message"></p>
-        <button class="btn ghost small" id="error-dismiss">關閉</button>
+        <button type="button" class="btn-ghost small" id="error-dismiss">關閉</button>
       </div>
     </section>
   </main>
 
-  <footer class="wrap muted footer">
-    ScopeCut · 本機工具 · Codex CLI 驅動 · 交付到 WikiNB / wiki / Projects
-  </footer>
-
-  <script src="/app.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>

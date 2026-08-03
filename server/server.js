@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import express from 'express';
+import nodemailer from 'nodemailer';
 
 import { OPTION_GROUPS } from './options.js';
 import { buildCodexPrompt, parseCodexOutput } from './prompt-builder.js';
@@ -13,7 +14,6 @@ import { saveAndSync, wikinbRoot } from './wikinb.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
-// GUI 啟動時 PATH 可能不含 Homebrew(codex / git 需要)
 for (const dir of ['/opt/homebrew/bin', '/usr/local/bin']) {
   const parts = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
   if (!parts.includes(dir) && fs.existsSync(dir)) {
@@ -24,22 +24,100 @@ for (const dir of ['/opt/homebrew/bin', '/usr/local/bin']) {
 const PORT = Number(process.env.PORT || 8788);
 const AUTH_USER = process.env.SCOPECUT_AUTH_USER || '';
 const AUTH_PASS = process.env.SCOPECUT_AUTH_PASS || '';
+const AUTH_EMAILS = (process.env.SCOPECUT_AUTH_EMAILS || process.env.WIKINB_AUTH_EMAILS || '')
+  .split(',')
+  .map((e) => e.trim())
+  .filter(Boolean);
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:8788,https://zx50416.github.io')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+const DEV_LOG_CODE = process.env.DEV_LOG_CODE !== 'false';
+const CODE_TTL_MS = 10 * 60 * 1000;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
-const LOGIN_MAX_FAILS = 5;
-const LOGIN_LOCK_MS = 10 * 60 * 1000;
+const OTP_MAX_FAILS = 3;
+const OTP_LOCK_MS = 10 * 60 * 1000;
 
+const pendingCodes = new Map();
 const sessions = new Map();
-const loginGuard = { failCount: 0, lockedUntil: 0 };
+const otpGuard = { failCount: 0, lockedUntil: 0 };
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (!origin || CORS_ORIGINS.some((o) => origin === o || origin.startsWith(o))) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  }
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-function refreshLock() {
-  if (loginGuard.lockedUntil && loginGuard.lockedUntil <= Date.now()) {
-    loginGuard.failCount = 0;
-    loginGuard.lockedUntil = 0;
+function randomCode() {
+  return String(crypto.randomInt(100000, 999999));
+}
+function randomToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+function credentialsOk(username, password) {
+  if (!AUTH_USER || !AUTH_PASS) return false;
+  return String(username ?? '') === AUTH_USER && String(password ?? '') === AUTH_PASS;
+}
+function refreshOtpLockState() {
+  if (otpGuard.lockedUntil && otpGuard.lockedUntil <= Date.now()) {
+    otpGuard.failCount = 0;
+    otpGuard.lockedUntil = 0;
   }
+}
+function otpLockResponse(res) {
+  refreshOtpLockState();
+  if (!otpGuard.lockedUntil || otpGuard.lockedUntil <= Date.now()) return false;
+  const mins = Math.max(1, Math.ceil((otpGuard.lockedUntil - Date.now()) / 60000));
+  res.status(429).json({
+    error: `登入已暫停,請約 ${mins} 分鐘後再試`,
+    locked: true,
+    lockedUntil: otpGuard.lockedUntil,
+  });
+  return true;
+}
+
+async function sendCodeEmail(code) {
+  const subject = `ScopeCut 登入驗證碼：${code}`;
+  const text = `你的 ScopeCut 登入驗證碼是：${code}\n\n10 分鐘內有效。若不是你本人操作，請忽略此信。`;
+  const to = AUTH_EMAILS.length ? AUTH_EMAILS : [];
+
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS || to.length === 0) {
+    if (DEV_LOG_CODE) {
+      console.log('\n📧 [DEV] 驗證碼（未設定 SMTP 或收件信箱）:', code);
+      console.log('   目標:', to.join(', ') || '(無)', '\n');
+    }
+    return { dev: true };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: false,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: to.join(','),
+    subject,
+    text,
+  });
+  return { dev: false };
 }
 
 function authMiddleware(req, res, next) {
@@ -61,41 +139,104 @@ app.get('/api/health', (_req, res) => {
     model: codexModel(),
     effort: codexEffort(),
     authConfigured: Boolean(AUTH_USER && AUTH_PASS),
+    smtpConfigured: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS),
+    authEmails: AUTH_EMAILS.length,
   });
 });
 
-app.post('/api/auth/login', (req, res) => {
-  refreshLock();
-  if (loginGuard.lockedUntil > Date.now()) {
-    const mins = Math.max(1, Math.ceil((loginGuard.lockedUntil - Date.now()) / 60000));
-    res.status(429).json({ error: `登入已暫停,請約 ${mins} 分鐘後再試` });
-    return;
-  }
+app.post('/api/auth/send-code', async (req, res) => {
+  try {
+    if (otpLockResponse(res)) return;
 
-  if (!AUTH_USER || !AUTH_PASS) {
-    res.status(500).json({ error: '尚未設定 SCOPECUT_AUTH_USER / SCOPECUT_AUTH_PASS(見 .env.example)' });
-    return;
-  }
-
-  const { username, password } = req.body || {};
-  if (String(username ?? '') !== AUTH_USER || String(password ?? '') !== AUTH_PASS) {
-    loginGuard.failCount += 1;
-    if (loginGuard.failCount >= LOGIN_MAX_FAILS) {
-      loginGuard.lockedUntil = Date.now() + LOGIN_LOCK_MS;
-      res.status(429).json({ error: `累積錯誤 ${loginGuard.failCount} 次,登入已暫停 10 分鐘` });
+    if (!AUTH_USER || !AUTH_PASS) {
+      res.status(500).json({ error: '尚未設定 SCOPECUT_AUTH_USER / SCOPECUT_AUTH_PASS' });
       return;
     }
-    res.status(401).json({
-      error: `帳號或密碼錯誤(累積 ${loginGuard.failCount} 次,達 ${LOGIN_MAX_FAILS} 次將暫停 10 分鐘)`,
+
+    const { username, password } = req.body || {};
+    if (!credentialsOk(username, password)) {
+      res.status(401).json({ error: '帳號或密碼錯誤' });
+      return;
+    }
+
+    const code = randomCode();
+    pendingCodes.set('login', { code, expiresAt: Date.now() + CODE_TTL_MS });
+
+    try {
+      const sendResult = await sendCodeEmail(code);
+      res.json({
+        ok: true,
+        message: sendResult.dev
+          ? `帳密正確。驗證碼已顯示於 Bridge 終端機${AUTH_EMAILS.length ? `（目標 ${AUTH_EMAILS.length} 個信箱）` : ''}`
+          : `帳密正確，驗證碼已寄送至 ${AUTH_EMAILS.length} 個信箱`,
+        expiresIn: CODE_TTL_MS / 1000,
+        failCount: otpGuard.failCount,
+        dev: Boolean(sendResult.dev),
+      });
+    } catch (mailErr) {
+      console.error('send-code SMTP error:', mailErr.message || mailErr);
+      if (DEV_LOG_CODE) {
+        console.log('\n📧 [FALLBACK] SMTP 失敗，驗證碼改顯示於終端機:', code, '\n');
+        res.json({
+          ok: true,
+          message: '帳密正確，但寄信失敗。請查看 Bridge 終端機上的驗證碼',
+          expiresIn: CODE_TTL_MS / 1000,
+          failCount: otpGuard.failCount,
+          dev: true,
+        });
+        return;
+      }
+      pendingCodes.delete('login');
+      res.status(500).json({ error: '寄送驗證碼失敗，請檢查 SMTP 設定' });
+    }
+  } catch (err) {
+    console.error('send-code error:', err);
+    res.status(500).json({ error: '寄送驗證碼失敗' });
+  }
+});
+
+app.post('/api/auth/verify', (req, res) => {
+  if (otpLockResponse(res)) return;
+
+  const { code } = req.body || {};
+  const pending = pendingCodes.get('login');
+
+  if (!pending || pending.expiresAt < Date.now()) {
+    res.status(400).json({ error: '驗證碼已過期，請重新寄送' });
+    return;
+  }
+
+  if (String(code).trim() !== pending.code) {
+    otpGuard.failCount += 1;
+    const fails = otpGuard.failCount;
+    if (fails >= OTP_MAX_FAILS) {
+      otpGuard.lockedUntil = Date.now() + OTP_LOCK_MS;
+      res.status(429).json({
+        error: `累積錯誤 ${fails} 次，登入已暫停 10 分鐘`,
+        failCount: fails,
+        locked: true,
+        lockedUntil: otpGuard.lockedUntil,
+      });
+      return;
+    }
+    res.status(400).json({
+      error: `驗證碼錯誤（累積 ${fails} 次，達 ${OTP_MAX_FAILS} 次將暫停登入）`,
+      failCount: fails,
     });
     return;
   }
 
-  loginGuard.failCount = 0;
-  loginGuard.lockedUntil = 0;
-  const token = crypto.randomBytes(32).toString('hex');
+  pendingCodes.delete('login');
+  otpGuard.failCount = 0;
+  otpGuard.lockedUntil = 0;
+  const token = randomToken();
   sessions.set(token, { expiresAt: Date.now() + SESSION_TTL_MS, createdAt: Date.now() });
   res.json({ ok: true, token, expiresAt: Date.now() + SESSION_TTL_MS });
+});
+
+/** 相容舊路徑：直接帳密登入已停用 */
+app.post('/api/auth/login', (_req, res) => {
+  res.status(400).json({ error: '請改用兩步驟登入：/api/auth/send-code → /api/auth/verify' });
 });
 
 app.post('/api/auth/logout', authMiddleware, (req, res) => {
@@ -113,13 +254,12 @@ app.get('/api/options', authMiddleware, (_req, res) => {
   res.json({ ok: true, groups: OPTION_GROUPS, model: codexModel(), effort: codexEffort() });
 });
 
-/** 一次只跑一個任務(規劃文件生成) */
 let generating = false;
 
 app.post('/api/generate', authMiddleware, async (req, res) => {
   const { idea, selections, extraNotes } = req.body || {};
   if (!String(idea || '').trim()) {
-    res.status(400).json({ error: '請先輸入你這次的主要任務(原始想法)' });
+    res.status(400).json({ error: '請先輸入你這次的主要任務' });
     return;
   }
   if (generating) {
@@ -128,7 +268,6 @@ app.post('/api/generate', authMiddleware, async (req, res) => {
   }
   generating = true;
 
-  // NDJSON 串流:前端逐行讀取進度
   res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   const send = (payload) => {
@@ -181,9 +320,12 @@ app.post('/api/generate', authMiddleware, async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n✂️  ScopeCut running on http://localhost:${PORT}`);
+  console.log(`\n✂️  ScopeCut Bridge on http://localhost:${PORT}`);
   console.log(`   WikiNB root: ${wikinbRoot()}`);
-  console.log(`   Codex: ${codexModel()} · ${codexEffort()}`);
-  console.log(`   Auth: ${AUTH_USER && AUTH_PASS ? 'configured' : 'MISSING(請設定 .env)'}`);
+  console.log(`   Codex: ${codexModel()} · ${codexEffort()} · sandbox=read-only`);
+  console.log(`   Auth: ${AUTH_USER && AUTH_PASS ? 'configured' : 'MISSING'}`);
+  console.log(`   SMTP: ${process.env.SMTP_USER && process.env.SMTP_PASS ? 'configured' : 'DEV (codes in terminal)'}`);
+  console.log(`   Auth emails: ${AUTH_EMAILS.join(', ') || '(none)'}`);
+  console.log(`   CORS: ${CORS_ORIGINS.join(', ')}`);
   console.log(`   Git push: ${process.env.SCOPECUT_GIT_PUSH !== 'false'}\n`);
 });

@@ -73,8 +73,10 @@ export function runCodex(prompt, { cwd, onStatus } = {}) {
 
   return new Promise((resolve, reject) => {
     const startedAt = Date.now();
-    onStatus?.(`正在啟動 Codex(${model} · ${effort})…`);
+    onStatus?.(`正在啟動 Codex(${model} · ${effort} · read-only)…`);
 
+    // 強制唯讀：Codex 只能產出文字合約，不可改本機任何檔案。
+    // 寫入 wiki/Projects 由 ScopeCut 後端專責處理。
     const child = spawn('codex', args, {
       cwd: cwd || process.cwd(),
       env: process.env,
