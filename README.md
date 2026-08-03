@@ -4,6 +4,13 @@
 
 把「突然想做的事情」透過 UI 選項收斂成一份完整的 **Codex Project Contract**,由本機 Codex CLI 深度規劃後,自動存進 WikiNB 筆記站的 `wiki/Projects/` 並推送上線。
 
+## 連結
+
+- **本機網站(啟動後):** [http://localhost:8788](http://localhost:8788)
+- **交付目的地(WikiNB 筆記站):** [https://zx50416.github.io/WikiNB/](https://zx50416.github.io/WikiNB/) — 產出的合約會出現在 `wiki/Projects/` 底下
+- **原始碼:** [https://github.com/zx50416/ScopeCut](https://github.com/zx50416/ScopeCut)
+- **姊妹專案:** [WikiNB](https://github.com/zx50416/WikiNB)
+
 網頁**不顯示規劃內容**——完成後只告訴你:文件存在本機哪裡、已推送到 GitHub、上線網址是什麼。之後把那份合約貼給任何 AI Agent(Codex CLI / Claude Code / Cursor),就能一次完成開發、測試、README 與 Git 交付。
 
 ## 核心流程
