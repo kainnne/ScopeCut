@@ -90,8 +90,9 @@ function upsertIndexLink(slug, label) {
     : '# Kainnne 知識庫索引\n\n## 筆記\n\n';
 
   const today = new Date().toISOString().slice(0, 10);
-  if (/> 最後更新:\d{4}-\d{2}-\d{2}/.test(text)) {
-    text = text.replace(/> 最後更新:\d{4}-\d{2}-\d{2}/, `> 最後更新:${today}`);
+  // WikiNB index 使用全形冒號「：」；同時相容半形「:」
+  if (/> 最後更新[：:]\d{4}-\d{2}-\d{2}/.test(text)) {
+    text = text.replace(/> 最後更新[：:]\d{4}-\d{2}-\d{2}/, `> 最後更新：${today}`);
   }
 
   const link = label ? `- [[${slug}]] — ${label}` : `- [[${slug}]]`;
