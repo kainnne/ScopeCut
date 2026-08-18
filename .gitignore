@@ -3,3 +3,12 @@ node_modules/
 .DS_Store
 *.log
 test/.tmp/
+
+# BEGIN KAINNNE PRIVATE AGENT RULES
+# Local private agent context installed by the agents CLI.
+/AGENTS.md
+/AGENTS.local.md
+/CLAUDE.md
+/AGENTS_Intro/
+/Intro.md
+# END KAINNNE PRIVATE AGENT RULES
