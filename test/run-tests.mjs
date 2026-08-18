@@ -113,14 +113,22 @@ const server = spawn('node', [path.join(ROOT, 'server', 'server.js')], {
 });
 
 async function waitForServer() {
-  for (let i = 0; i < 40; i += 1) {
+  const configuredTimeout = Number(process.env.TEST_SERVER_START_TIMEOUT_MS || 90000);
+  const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? configuredTimeout
+    : 90000;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
     try {
       const res = await fetch(`${BASE}/api/health`);
       if (res.ok) return;
     } catch { /* not up */ }
+    if (server.exitCode !== null) break;
     await new Promise((r) => setTimeout(r, 250));
   }
-  throw new Error(`伺服器未啟動:\n${fs.readFileSync(serverLogPath, 'utf8')}`);
+  throw new Error(
+    `伺服器未在 ${Math.round(timeoutMs / 1000)} 秒內啟動:\n${fs.readFileSync(serverLogPath, 'utf8')}`,
+  );
 }
 
 function readLatestCodeFromLog() {

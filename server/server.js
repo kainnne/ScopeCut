@@ -88,12 +88,38 @@ function otpLockResponse(res) {
   return true;
 }
 
+function smtpPass() {
+  // Gmail 應用程式密碼常帶空格／引號；寄信前正規化
+  return String(process.env.SMTP_PASS || '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/\s+/g, '');
+}
+
+function createSmtpTransport({ port, secure }) {
+  const user = String(process.env.SMTP_USER || '').trim();
+  const pass = smtpPass();
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port,
+    secure,
+    requireTLS: !secure,
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 30000,
+    auth: { user, pass },
+    tls: { minVersion: 'TLSv1.2' },
+  });
+}
+
 async function sendCodeEmail(code) {
   const subject = `ScopeCut 登入驗證碼：${code}`;
   const text = `你的 ScopeCut 登入驗證碼是：${code}\n\n10 分鐘內有效。若不是你本人操作，請忽略此信。`;
   const to = AUTH_EMAILS.length ? AUTH_EMAILS : [];
+  const user = String(process.env.SMTP_USER || '').trim();
+  const pass = smtpPass();
 
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS || to.length === 0) {
+  if (!user || !pass || to.length === 0) {
     if (DEV_LOG_CODE) {
       console.log('\n📧 [DEV] 驗證碼（未設定 SMTP 或收件信箱）:', code);
       console.log('   目標:', to.join(', ') || '(無)', '\n');
@@ -101,23 +127,36 @@ async function sendCodeEmail(code) {
     return { dev: true };
   }
 
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
+  const from = String(process.env.SMTP_FROM || '').trim() || user;
+  const mail = { from, to: to.join(','), subject, text };
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: to.join(','),
-    subject,
-    text,
-  });
-  return { dev: false };
+  // 先尊重自訂 port，再回退到 Gmail 常用的 465(SSL)／587(STARTTLS)。
+  // 部分網路(校園／公司)可能只允許其中一種連線方式。
+  const configuredPort = Number(process.env.SMTP_PORT || 465);
+  const preferred =
+    Number.isInteger(configuredPort) && configuredPort > 0 && configuredPort <= 65535
+      ? configuredPort
+      : 465;
+  const attempts = [...new Set([preferred, 465, 587])].map((port) => ({
+    port,
+    secure: port === 465,
+  }));
+
+  let lastErr;
+  for (const attempt of attempts) {
+    try {
+      const transporter = createSmtpTransport(attempt);
+      await transporter.sendMail(mail);
+      return { dev: false, port: attempt.port };
+    } catch (err) {
+      lastErr = err;
+      console.warn(
+        `SMTP port ${attempt.port} failed:`,
+        String(err?.message || err).slice(0, 160),
+      );
+    }
+  }
+  throw lastErr || new Error('SMTP 寄送失敗');
 }
 
 function authMiddleware(req, res, next) {
@@ -174,12 +213,14 @@ app.post('/api/auth/send-code', async (req, res) => {
         dev: Boolean(sendResult.dev),
       });
     } catch (mailErr) {
-      console.error('send-code SMTP error:', mailErr.message || mailErr);
+      const detail = String(mailErr?.message || mailErr).slice(0, 240);
+      console.error('send-code SMTP error:', detail);
       if (DEV_LOG_CODE) {
-        console.log('\n📧 [FALLBACK] SMTP 失敗，驗證碼改顯示於終端機:', code, '\n');
+        console.log('\n📧 [FALLBACK] SMTP 失敗，驗證碼改顯示於終端機:', code);
+        console.log('   原因:', detail, '\n');
         res.json({
           ok: true,
-          message: '帳密正確，但寄信失敗。請查看 Bridge 終端機上的驗證碼',
+          message: '帳密正確，但寄信失敗。請用 Bridge 終端機上的驗證碼，或重啟 npm start 後再試',
           expiresIn: CODE_TTL_MS / 1000,
           failCount: otpGuard.failCount,
           dev: true,
@@ -187,7 +228,7 @@ app.post('/api/auth/send-code', async (req, res) => {
         return;
       }
       pendingCodes.delete('login');
-      res.status(500).json({ error: '寄送驗證碼失敗，請檢查 SMTP 設定' });
+      res.status(500).json({ error: '寄送驗證碼失敗，請稍後再試' });
     }
   } catch (err) {
     console.error('send-code error:', err);
