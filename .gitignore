@@ -3,6 +3,7 @@ node_modules/
 .DS_Store
 *.log
 test/.tmp/
+.wrangler/
 
 # BEGIN KAINNNE PRIVATE AGENT RULES
 # Local private agent context installed by the agents CLI.

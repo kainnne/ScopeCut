@@ -3,169 +3,98 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="ScopeCut 把模糊的專案想法整理成可開始的方向、學習清單與第一版 Agent Prompt。" />
+    <meta name="description" content="把模糊想法整理成可開始的第一版。" />
     <meta name="theme-color" content="#fff8fc" />
-    <meta property="og:title" content="ScopeCut — 從一點想法開始第一版" />
-    <meta property="og:description" content="回答幾個簡單問題，取得專案方向、學習清單與可直接交給 Agent 的第一版 Prompt。" />
+    <meta name="scopecut-api-base" content="https://scopecut-auth.chaos60649.workers.dev" />
+    <meta property="og:title" content="ScopeCut" />
+    <meta property="og:description" content="把模糊想法整理成可開始的第一版。" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://scopecut.kainnne.com/" />
     <link rel="canonical" href="https://scopecut.kainnne.com/" />
     <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@600;700&amp;family=DM+Mono:wght@400;500&amp;family=Nunito:wght@400;600;700;800&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@600;700&amp;family=DM+Mono:wght@400;500&amp;family=Nunito:wght@500;600;700;800&amp;display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./style.css" />
-    <title>ScopeCut — 從一點想法開始第一版</title>
+    <title>ScopeCut</title>
   </head>
   <body>
-    <a class="skip-link" href="#main">跳至主要內容</a>
+    <a class="skip-link" href="#builder">開始使用 ScopeCut</a>
     <div class="dream-background" aria-hidden="true">
-      <div class="dream-blob blob-one"></div><div class="dream-blob blob-two"></div><div class="dream-blob blob-three"></div>
-      <div class="dream-wash"></div><div class="pointer-light"></div>
+      <i></i><i></i><i></i><span></span>
     </div>
     <div class="page-grain" aria-hidden="true"></div>
-    <div class="scroll-progress" aria-hidden="true"><span id="scroll-progress"></span></div>
 
     <header class="site-header">
-      <a class="brand-link" href="#top" aria-label="ScopeCut 首頁"><span class="brand-mark" aria-hidden="true">S</span><span>ScopeCut</span></a>
-      <nav class="site-nav" aria-label="主要導覽">
-        <a href="#how">怎麼運作</a>
-        <button class="nav-points" type="button" data-open-pricing><span class="point-dot" aria-hidden="true"></span>每日 2 點</button>
-        <a class="nav-kainnne" href="https://kainnne.com" target="_blank" rel="noreferrer">Kainnne ↗</a>
+      <a class="brand-link" href="#top"><span>S</span>ScopeCut</a>
+      <nav aria-label="網站選項">
+        <button class="points-balance" type="button" data-open-pricing><i></i><b id="points-balance">2</b> 點</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切換深色模式">◐</button>
+        <a href="https://kainnne.com" target="_blank" rel="noreferrer">Kainnne ↗</a>
       </nav>
-      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切換深色模式">
-        <svg class="moon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.5 8.5 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2Z" /></svg>
-        <svg class="sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5" /><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" /></svg>
-      </button>
     </header>
 
-    <main id="main">
-      <section class="hero section-shell" id="top">
+    <main id="top">
+      <section class="hero section-shell">
         <div class="hero-copy">
-          <p class="eyebrow">IDEA → DIRECTION → FIRST VERSION</p>
-          <h1>只有一點想法，<br /><span>也能開始第一版。</span></h1>
-          <p class="hero-description">不用先懂模型、技術或 Prompt。ScopeCut 會把你還說不清楚的想法，整理成專案方向、需要學的知識，以及一份可直接交給 Agent 的第一版指令。</p>
-          <div class="hero-actions">
-            <button class="button button-primary" type="button" data-start>開始整理想法 <span aria-hidden="true">↘</span></button>
-            <a class="button button-secondary" href="#example">先看輸出範例</a>
-          </div>
-          <div class="hero-status" aria-label="服務資訊">
-            <span><b>2</b> 每日免費點數</span><span><b>1</b> 點完成一份 Scope Pack</span><span><b>0</b> 不用先註冊</span>
-          </div>
+          <h1>把想法，<br /><span>做成第一版。</span></h1>
+          <p>回答幾個問題，取得方向、學習清單和 Agent Prompt。</p>
+          <button class="primary-button" type="button" data-start>開始 <span>↘</span></button>
         </div>
-
-        <div class="hero-preview" aria-label="Scope Pack 預覽">
-          <div class="preview-orbit orbit-one" aria-hidden="true"></div><div class="preview-orbit orbit-two" aria-hidden="true"></div>
-          <article class="preview-card">
-            <div class="preview-card-top"><span class="preview-label">SCOPE PACK / PREVIEW</span><span class="preview-ready"><i></i> Ready</span></div>
-            <div class="preview-title"><span class="preview-number">01</span><div><small>ScopeCut 主推薦</small><strong>先做出可操作的核心流程</strong></div></div>
-            <ul class="preview-list">
-              <li><span>01</span>三個以內的專案方向</li><li><span>02</span>第一版功能與完成標準</li>
-              <li><span>03</span>你會用到的學習知識</li><li><span>04</span>可複製給 Agent 的 Prompt</li>
-            </ul>
-            <div class="preview-prompt"><span>AGENT PROMPT</span><p>請協助我做出一個可以實際操作的第一版⋯</p><i></i><i></i><i></i></div>
-          </article>
-          <span class="floating-tag tag-learn">Learning map</span><span class="floating-tag tag-prompt">Copy prompt</span>
-        </div>
-      </section>
-
-      <section class="trust-strip section-shell" aria-label="ScopeCut 特點">
-        <div><span>01</span><strong>從模糊開始</strong><small>一句話就能開始，不需要規格書</small></div>
-        <div><span>02</span><strong>替你縮小範圍</strong><small>最多三個方向，直接推薦第一步</small></div>
-        <div><span>03</span><strong>交給 Agent 執行</strong><small>輸出簡短、具體、不綁住 AI 的 Prompt</small></div>
-      </section>
-
-      <section class="how-section section-shell" id="how">
-        <div class="section-heading">
-          <p class="eyebrow">HOW IT WORKS</p><h2>回答你知道的，<br />其餘交給 ScopeCut 整理。</h2>
-          <p>整個流程只詢問會改變專案方向的資訊，不要求你先做技術選擇。</p>
-        </div>
-        <div class="how-grid">
-          <article class="how-card tone-pink"><span class="how-number">01</span><div class="how-icon" aria-hidden="true">✦</div><h3>描述一點點想法</h3><p>寫下一句話、想解決的問題，或只是你最近想試的東西。</p><small>約 1–2 分鐘</small></article>
-          <article class="how-card tone-lilac"><span class="how-number">02</span><div class="how-icon" aria-hidden="true">⌁</div><h3>選擇目的與限制</h3><p>告訴我們這是學習、作品集或實用工具，以及你能投入多少時間。</p><small>不用選模型或技術</small></article>
-          <article class="how-card tone-mint"><span class="how-number">03</span><div class="how-icon" aria-hidden="true">↗</div><h3>取得 Scope Pack</h3><p>登入後使用 1 點，取得方向、學習清單與可直接複製的 Prompt。</p><small>每日免費 2 點</small></article>
+        <div class="scope-visual" aria-hidden="true">
+          <div class="scope-core"><span>Scope</span><strong>Cut</strong></div>
+          <span class="scope-chip chip-one">方向</span>
+          <span class="scope-chip chip-two">第一版</span>
+          <span class="scope-chip chip-three">Prompt</span>
         </div>
       </section>
 
       <section class="builder-section section-shell" id="builder">
-        <div class="builder-intro">
-          <p class="eyebrow">BUILD YOUR SCOPE</p><h2>先把想法填完，<br />最後才需要登入。</h2>
-          <p>內容會自動保留在這台裝置。登入或切換頁面後，不需要重新填寫。</p>
-          <div class="privacy-note"><span aria-hidden="true">◎</span><p><strong>目前是前端預覽版</strong>這一版不會真的寄信、扣款或呼叫付費 AI；你可以完整測試產品流程與輸出形式。</p></div>
-        </div>
         <div class="builder-shell" id="builder-shell">
           <div class="builder-topbar">
-            <div><span class="builder-step-label" id="builder-step-label">STEP 1 / 5</span><strong id="builder-step-name">你的想法</strong></div>
-            <button class="points-balance" type="button" data-open-pricing aria-label="查看點數方案"><span class="point-dot" aria-hidden="true"></span><b id="points-balance">2</b> 點</button>
+            <span id="builder-step-label">1 / 5</span>
+            <strong id="builder-step-name">你的想法</strong>
           </div>
           <div class="progress-track" aria-hidden="true"><span id="builder-progress"></span></div>
           <div class="builder-content" id="builder-content"></div>
-          <noscript>ScopeCut 需要 JavaScript 才能保留草稿並完成互動流程。</noscript>
+          <noscript>請啟用 JavaScript。</noscript>
         </div>
-      </section>
-
-      <section class="example-section section-shell" id="example">
-        <div class="section-heading compact"><p class="eyebrow">SCOPE PACK</p><h2>輸出不是一長串規則，<br />而是一條可以開始的路。</h2></div>
-        <article class="example-pack">
-          <div class="example-sidebar">
-            <span>SAMPLE / 001</span><strong>「我想做一個幫我記錄學習進度的東西」</strong>
-            <nav aria-label="範例內容"><a href="#sample-direction">01 / 專案方向</a><a href="#sample-version">02 / 第一版</a><a href="#sample-learn">03 / 學習知識</a><a href="#sample-prompt">04 / Agent Prompt</a></nav>
-          </div>
-          <div class="example-content">
-            <section id="sample-direction"><span>01 / 主推薦</span><h3>一頁式學習進度板</h3><p>先讓使用者新增學習項目、記錄今天做了什麼，並看見本週進度。這個方向最容易在短時間內完成並開始使用。</p></section>
-            <section id="sample-version"><span>02 / 第一版</span><ul><li>新增一個學習目標</li><li>每天寫一段進度紀錄</li><li>顯示本週完成天數</li></ul></section>
-            <section id="sample-learn"><span>03 / 可能需要學</span><div class="learn-tags"><b>HTML / CSS</b><b>JavaScript</b><b>瀏覽器儲存</b><b>GitHub Pages</b></div></section>
-            <section class="sample-prompt" id="sample-prompt"><span>04 / 可複製給 Agent</span><p>請協助我做一個「一頁式學習進度板」的第一版。它要讓我新增學習目標、記錄每日進度，並看見本週完成天數⋯</p><button class="text-button" type="button" data-start>用我的想法產生 ↗</button></section>
-          </div>
-        </article>
-      </section>
-
-      <section class="pricing-section section-shell" id="pricing">
-        <div class="section-heading compact"><p class="eyebrow">POINTS</p><h2>每天先免費使用，<br />需要更多時再增加點數。</h2><p>付費功能尚未開放。以下是預計測試的點數方案，按鈕不會產生扣款。</p></div>
-        <div class="pricing-grid">
-          <article class="price-card"><span>STARTER</span><h3><sup>US$</sup>1</h3><strong>10 點</strong><p>適合多試幾個小想法。</p><button type="button" data-plan="US$1 / 10 點">預覽方案</button></article>
-          <article class="price-card featured"><span>MOST FLEXIBLE</span><h3><sup>US$</sup>3</h3><strong>40 點</strong><p>適合規劃一組相關專案。</p><button type="button" data-plan="US$3 / 40 點">預覽方案</button></article>
-          <article class="price-card"><span>PROJECT MODE</span><h3><sup>US$</sup>5</h3><strong>100 點</strong><p>適合持續探索與學習。</p><button type="button" data-plan="US$5 / 100 點">預覽方案</button></article>
-        </div>
-      </section>
-
-      <section class="kainnne-section section-shell">
-        <div><p class="eyebrow">A KAINNNE PROJECT</p><h2>需要的不只是 Prompt？</h2><p>你也可以查看 Kainnne 的其他 AI 產品、個人專案，或聯絡我一起把想法做成真正能用的網站與工具。</p></div>
-        <div class="kainnne-actions"><a class="button button-primary" href="https://kainnne.com" target="_blank" rel="noreferrer">前往 kainnne.com <span>↗</span></a><a class="button button-secondary" href="mailto:chaos60649@gmail.com">討論一個專案</a></div>
       </section>
     </main>
 
     <footer class="site-footer section-shell">
-      <a class="footer-brand" href="#top">ScopeCut</a><p>把模糊想法整理成可以開始的第一版。</p>
-      <nav aria-label="頁尾導覽"><a href="#how">怎麼運作</a><a href="#pricing">點數</a><a href="https://github.com/kainnne/ScopeCut" target="_blank" rel="noreferrer">GitHub ↗</a><a href="#top">Top ↑</a></nav>
-      <span>Design by <a href="https://kainnne.com" target="_blank" rel="noreferrer">Kainnne</a> · © 2026</span>
+      <span>ScopeCut</span>
+      <nav><a href="https://kainnne.com" target="_blank" rel="noreferrer">Kainnne ↗</a><a href="https://github.com/kainnne/ScopeCut" target="_blank" rel="noreferrer">GitHub ↗</a></nav>
     </footer>
 
     <dialog class="modal" id="auth-dialog" aria-labelledby="auth-title">
       <button class="modal-close" type="button" data-close-dialog aria-label="關閉">×</button>
       <div id="auth-email-step">
-        <span class="modal-kicker">YOUR DRAFT IS SAFE</span><h2 id="auth-title">想法已經填完，<br />登入後產生 Scope Pack。</h2>
-        <p>正式版會寄送免密碼登入連結。你的草稿已保存在這台裝置，驗證後會接著產生，不需要重填。</p>
+        <h2 id="auth-title">輸入 Email</h2>
         <form id="auth-form">
-          <label for="auth-email">Email</label><div class="email-control"><input id="auth-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required /><button type="submit">取得登入連結</button></div>
-          <small>前端預覽版不會真的寄信，也不會把 Email 上傳。</small>
+          <div class="email-control"><input id="auth-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Email" required /><button type="submit">繼續</button></div>
+          <small>草稿已保存。</small>
         </form>
       </div>
-      <div class="hidden" id="auth-preview-step">
-        <span class="modal-kicker">PREVIEW MODE</span><div class="mail-illustration" aria-hidden="true">✉</div>
-        <h2>正式版會把連結寄到<br /><span id="auth-email-display"></span></h2>
-        <p>目前尚未接上 Email 與 AI 後端。你可以模擬完成驗證，查看這份資料會產生的 Scope Pack 前端範例。</p>
-        <button class="button button-primary full" id="preview-auth-button" type="button">模擬驗證並查看結果 <span>↗</span></button>
-        <button class="text-button centered" id="back-to-email" type="button">更換 Email</button>
+      <div class="hidden" id="auth-code-step">
+        <h2 id="auth-email-display"></h2>
+        <form id="auth-code-form">
+          <div class="email-control"><input id="auth-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="六位驗證碼" aria-label="六位驗證碼" required /><button type="submit">驗證</button></div>
+          <small id="auth-status" role="status" aria-live="polite"></small>
+        </form>
+        <button class="text-button" id="back-to-email" type="button">更換 Email</button>
       </div>
     </dialog>
 
     <dialog class="modal payment-modal" id="payment-dialog" aria-labelledby="payment-title">
       <button class="modal-close" type="button" data-close-dialog aria-label="關閉">×</button>
-      <span class="modal-kicker">PAYMENT PREVIEW</span><div class="payment-icon" aria-hidden="true">◌</div><h2 id="payment-title">點數付款尚未開放</h2>
-      <p id="payment-copy">這是用來確認介面與方案的測試入口，不會跳轉金流、建立訂單或產生扣款。</p>
-      <div class="selected-plan" id="selected-plan">每日免費 2 點</div>
-      <button class="button button-primary full" type="button" data-close-dialog>了解，先免費試用</button>
+      <h2 id="payment-title">點數尚未開放</h2>
+      <div class="plan-list">
+        <span><b>US$1</b>10 點</span>
+        <span><b>US$3</b>40 點</span>
+        <span><b>US$5</b>100 點</span>
+      </div>
+      <small>不會扣款</small>
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
