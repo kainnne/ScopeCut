@@ -266,7 +266,7 @@ a {
   min-height: 100svh;
   padding: 145px 0 90px;
   display: grid;
-  grid-template-columns: 1fr 0.78fr;
+  grid-template-columns: 1.18fr 0.72fr;
   align-items: center;
   gap: clamp(40px, 8vw, 100px);
 }
@@ -275,9 +275,9 @@ a {
   margin: 0;
   color: var(--strong);
   font-family: "Comfortaa", sans-serif;
-  font-size: clamp(4rem, 8.8vw, 7.5rem);
-  line-height: 0.98;
-  letter-spacing: -0.085em;
+  font-size: clamp(3.15rem, 6vw, 5.7rem);
+  line-height: 1.04;
+  letter-spacing: -0.075em;
 }
 
 .hero h1 span {
@@ -288,7 +288,7 @@ a {
 }
 
 .hero p {
-  max-width: 500px;
+  max-width: 620px;
   margin: 27px 0 0;
   color: var(--soft);
   font-size: clamp(0.92rem, 1.4vw, 1.05rem);
@@ -430,7 +430,7 @@ a {
 
 .builder-shell {
   width: min(780px, 100%);
-  min-height: 620px;
+  min-height: 680px;
   overflow: hidden;
   border: 1px solid var(--glass-line);
   border-radius: 34px;
@@ -470,7 +470,7 @@ a {
 }
 
 .builder-content {
-  min-height: 539px;
+  min-height: 599px;
   padding: clamp(28px, 6vw, 52px);
   display: flex;
   flex-direction: column;
@@ -492,6 +492,7 @@ a {
 }
 
 .idea-textarea,
+.compact-textarea,
 .text-input {
   width: 100%;
   border: 1px solid var(--line);
@@ -507,12 +508,25 @@ a {
   line-height: 1.7;
 }
 
+.idea-textarea.medium {
+  min-height: 145px;
+}
+
+.compact-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 15px;
+  resize: vertical;
+  line-height: 1.65;
+}
+
 .text-input {
   min-height: 50px;
   padding: 0 15px;
 }
 
 .idea-textarea:focus,
+.compact-textarea:focus,
 .text-input:focus {
   outline: none;
   border-color: rgba(183, 148, 255, 0.72);
@@ -536,6 +550,17 @@ a {
 
 .field-group + .field-group {
   margin-top: 26px;
+}
+
+.two-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.selection-limit {
+  min-height: auto;
+  margin-top: 9px;
 }
 
 .choice-grid {
@@ -835,7 +860,7 @@ a {
   font-weight: 700;
 }
 
-#auth-preview-step .text-button {
+#auth-code-step .text-button {
   width: 100%;
   margin-top: 8px;
 }
@@ -934,11 +959,11 @@ a {
   }
 
   .hero h1 {
-    font-size: clamp(3.7rem, 17vw, 5.5rem);
+    font-size: clamp(2.7rem, 11.5vw, 4.4rem);
   }
 
   .hero h1 br {
-    display: none;
+    display: initial;
   }
 
   .scope-visual {
@@ -954,18 +979,19 @@ a {
   }
 
   .builder-shell {
-    min-height: 590px;
+    min-height: 640px;
     border-radius: 27px;
   }
 
   .builder-content {
-    min-height: 510px;
+    min-height: 560px;
     padding: 28px 20px;
   }
 
   .choice-grid,
   .choice-grid.three,
-  .review-grid {
+  .review-grid,
+  .two-fields {
     grid-template-columns: 1fr;
   }
 

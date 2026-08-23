@@ -11,14 +11,21 @@ const [html, css, app, worker, wrangler] = await Promise.all([
 
 const checks = [
   ['公開網址與 canonical 一致', () => assert.match(html, /https:\/\/scopecut\.kainnne\.com\//)],
-  ['訪客先完成五步整理', () => assert.match(html, />1 \/ 5</)],
-  ['登入畫面說明草稿會保留', () => assert.match(html, /草稿已保存/)],
+  ['首頁呈現新的客製化 AI Project 定位', () => assert.match(html, /免費完成你的[\s\S]*客製化 AI project/)],
+  ['訪客使用九階段 Project 訪談', () => {
+    assert.match(html, />1 \/ 9</);
+    assert.match(app, /Project 概念[\s\S]*目標與成果[\s\S]*執行條件[\s\S]*確認/);
+  }],
+  ['不再詢問使用者經驗與完成時間', () => {
+    assert.doesNotMatch(app, /你有多少經驗和時間|一個晚上|一個週末|一週左右/);
+  }],
+  ['登入畫面說明封閉測試與 Project Brief 保存', () => assert.match(html, /目前僅開放指定測試帳號，Project Brief 已保存/)],
   ['登入使用六位數 Email 驗證碼', () => {
     assert.match(html, /autocomplete="one-time-code"/);
     assert.match(app, /\/api\/auth\/send-code/);
     assert.match(app, /\/api\/auth\/verify/);
   }],
-  ['付款入口不會誤導扣款', () => assert.match(html, /不會扣款/)],
+  ['付款入口標示為預覽', () => assert.match(html, /購買點數尚未開放[\s\S]*目前僅供預覽/)],
   ['首頁沒有多餘說明區塊', () => assert.doesNotMatch(html, /how-section|trust-strip|example-section|pricing-section|kainnne-section/)],
   ['公開前端未連線舊本機 Bridge', () => assert.doesNotMatch(app, /localhost:8788|127\.0\.0\.1:8788/)],
   ['API session 僅保存在當次瀏覽工作階段', () => assert.match(app, /sessionStorage\.setItem\(SESSION_KEY/)],
@@ -32,7 +39,15 @@ const checks = [
     assert.match(worker, /daily_usage\.used < \?/);
     assert.match(app, /\/api\/usage\/consume/);
   }],
-  ['Scope Pack Prompt 保持簡短自主', () => assert.match(app, /其他細節採用簡單合理的做法/)],
+  ['Project Prompt 使用完整 Brief 且不加入通用裝置限制', () => {
+    assert.match(app, /請根據以下 Project Brief/);
+    assert.match(app, /Project 概念[\s\S]*目標使用者與情境[\s\S]*第一版必須包含/);
+    assert.doesNotMatch(app, /手機與電腦上正常操作/);
+  }],
+  ['封閉測試帳號由 Worker 後端限制', () => {
+    assert.match(worker, /allowedEmail\(env, email\)/);
+    assert.match(wrangler, /"ALLOWED_EMAILS"/);
+  }],
   ['手機版與 reduced motion 樣式存在', () => {
     assert.match(css, /@media \(max-width: 620px\)/);
     assert.match(css, /prefers-reduced-motion/);

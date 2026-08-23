@@ -3,11 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="把模糊想法整理成可開始的第一版。" />
+    <meta name="description" content="透過系統化的 Project 訪談，完成你的客製化 AI Project。" />
     <meta name="theme-color" content="#fff8fc" />
     <meta name="scopecut-api-base" content="https://scopecut-auth.chaos60649.workers.dev" />
     <meta property="og:title" content="ScopeCut" />
-    <meta property="og:description" content="把模糊想法整理成可開始的第一版。" />
+    <meta property="og:description" content="透過系統化的 Project 訪談，完成你的客製化 AI Project。" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://scopecut.kainnne.com/" />
     <link rel="canonical" href="https://scopecut.kainnne.com/" />
@@ -37,14 +37,14 @@
     <main id="top">
       <section class="hero section-shell">
         <div class="hero-copy">
-          <h1>把想法，<br /><span>做成第一版。</span></h1>
-          <p>回答幾個問題，取得方向、學習清單和 Agent Prompt。</p>
-          <button class="primary-button" type="button" data-start>開始 <span>↘</span></button>
+          <h1>免費完成你的<br /><span>客製化 AI project</span></h1>
+          <p>透過系統化的 UI 訪談，將想法整理成 AI Agent 可以直接執行的 Project Prompt。</p>
+          <button class="primary-button" type="button" data-start>建立 Project <span>↘</span></button>
         </div>
         <div class="scope-visual" aria-hidden="true">
           <div class="scope-core"><span>Scope</span><strong>Cut</strong></div>
-          <span class="scope-chip chip-one">方向</span>
-          <span class="scope-chip chip-two">第一版</span>
+          <span class="scope-chip chip-one">目標</span>
+          <span class="scope-chip chip-two">規格</span>
           <span class="scope-chip chip-three">Prompt</span>
         </div>
       </section>
@@ -52,8 +52,8 @@
       <section class="builder-section section-shell" id="builder">
         <div class="builder-shell" id="builder-shell">
           <div class="builder-topbar">
-            <span id="builder-step-label">1 / 5</span>
-            <strong id="builder-step-name">你的想法</strong>
+            <span id="builder-step-label">1 / 9</span>
+            <strong id="builder-step-name">Project 概念</strong>
           </div>
           <div class="progress-track" aria-hidden="true"><span id="builder-progress"></span></div>
           <div class="builder-content" id="builder-content"></div>
@@ -70,16 +70,16 @@
     <dialog class="modal" id="auth-dialog" aria-labelledby="auth-title">
       <button class="modal-close" type="button" data-close-dialog aria-label="關閉">×</button>
       <div id="auth-email-step">
-        <h2 id="auth-title">輸入 Email</h2>
+        <h2 id="auth-title">Kainnne 測試登入</h2>
         <form id="auth-form">
-          <div class="email-control"><input id="auth-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Email" required /><button type="submit">繼續</button></div>
-          <small>草稿已保存。</small>
+          <div class="email-control"><input id="auth-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Email" required /><button type="submit">寄送驗證碼</button></div>
+          <small>目前僅開放指定測試帳號，Project Brief 已保存。</small>
         </form>
       </div>
       <div class="hidden" id="auth-code-step">
         <h2 id="auth-email-display"></h2>
         <form id="auth-code-form">
-          <div class="email-control"><input id="auth-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="六位驗證碼" aria-label="六位驗證碼" required /><button type="submit">驗證</button></div>
+          <div class="email-control"><input id="auth-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="六位驗證碼" aria-label="六位驗證碼" required /><button type="submit">登入</button></div>
           <small id="auth-status" role="status" aria-live="polite"></small>
         </form>
         <button class="text-button" id="back-to-email" type="button">更換 Email</button>
@@ -88,13 +88,13 @@
 
     <dialog class="modal payment-modal" id="payment-dialog" aria-labelledby="payment-title">
       <button class="modal-close" type="button" data-close-dialog aria-label="關閉">×</button>
-      <h2 id="payment-title">點數尚未開放</h2>
+      <h2 id="payment-title">購買點數尚未開放</h2>
       <div class="plan-list">
         <span><b>US$1</b>10 點</span>
         <span><b>US$3</b>40 點</span>
         <span><b>US$5</b>100 點</span>
       </div>
-      <small>不會扣款</small>
+      <small>目前僅供預覽</small>
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

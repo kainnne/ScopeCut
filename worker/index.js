@@ -34,6 +34,14 @@ function validEmail(email) {
   return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function allowedEmail(env, email) {
+  const allowed = String(env.ALLOWED_EMAILS || '')
+    .split(',')
+    .map((value) => normalizeEmail(value))
+    .filter(Boolean);
+  return allowed.length === 0 || allowed.includes(normalizeEmail(email));
+}
+
 function clientIp(request) {
   return request.headers.get('CF-Connecting-IP') || 'unknown';
 }
@@ -89,7 +97,7 @@ async function verifyToken(token, env) {
   if (signature !== expected) return null;
   try {
     const decoded = JSON.parse(new TextDecoder().decode(decodeBase64Url(payload)));
-    if (!validEmail(decoded.email) || Number(decoded.exp) <= Date.now() / 1000) return null;
+    if (!validEmail(decoded.email) || !allowedEmail(env, decoded.email) || Number(decoded.exp) <= Date.now() / 1000) return null;
     return decoded;
   } catch {
     return null;
@@ -154,6 +162,7 @@ async function requestOtp(request, env) {
   const body = await parseJson(request);
   const email = normalizeEmail(body.email);
   if (!validEmail(email)) return json({ error: '請輸入有效的 Email' }, 400);
+  if (!allowedEmail(env, email)) return json({ error: '目前僅開放指定測試帳號' }, 403);
 
   const ip = clientIp(request);
   const [ipAllowed, emailAllowed, globalAllowed] = await Promise.all([
@@ -223,6 +232,7 @@ async function verifyOtpCode(request, env) {
   if (!validEmail(email) || !/^\d{6}$/.test(code)) {
     return json({ error: '請輸入六位數驗證碼' }, 400);
   }
+  if (!allowedEmail(env, email)) return json({ error: '目前僅開放指定測試帳號' }, 403);
 
   const pending = await env.DB.prepare(
     'SELECT code_hash, expires_at, attempts FROM otp_requests WHERE email = ?',

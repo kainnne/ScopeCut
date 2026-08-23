@@ -8,6 +8,7 @@
   },
   "vars": {
     "ALLOWED_ORIGINS": "https://scopecut.kainnne.com,https://kainnne.github.io,http://localhost:8788",
+    "ALLOWED_EMAILS": "ryanzhu@kainnne.com",
     "AUTH_FROM": "ScopeCut <login@auth.kainnne.com>",
     "AUTH_REPLY_TO": "ryanzhu@kainnne.com",
     "DAILY_POINTS": "2"
