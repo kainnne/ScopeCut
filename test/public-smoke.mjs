@@ -66,6 +66,7 @@ const checks = [
     assert.match(app, /<details class="result-prompt">[\s\S]*可直接貼給 Agent 的內容[\s\S]*generated\.agent_prompt/);
     assert.match(app, /data-action="copy"/);
     assert.match(worker, /小型單頁網站，預設使用 HTML、CSS 與原生 JavaScript/);
+    assert.match(worker, /學習建議只放在 plan\.learning/);
   }],
   ['預估與實際差異完整保存', () => {
     assert.match(schema, /prediction_error_microusd/);

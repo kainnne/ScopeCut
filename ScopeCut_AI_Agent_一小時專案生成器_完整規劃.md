@@ -93,6 +93,7 @@
 - 2026-08-24 Terra 真實模糊需求測試：713 input tokens、2,457 output tokens（含 88 reasoning tokens）、25.683 秒、US$0.03091；成功收斂為今日焦點、快速新增與接下來要做的校園整理工具。
 - 測試發現 Terra 可能因「作品集」情境自動堆疊 React、TypeScript、Vite、Tailwind 與圖示套件。第一次只要求「最小成熟技術」仍不足，模型會以開發方便為框架辯護；因此規則改為：無登入、無後端、資料只存瀏覽器的小型單頁網站預設採 HTML、CSS 與原生 JavaScript，只有使用者指定、既有專案已採用或需求本身必須依賴時才加入框架。
 - 相同輸入的第二次回歸測試已通過：輸出改為 HTML、CSS、原生 JavaScript 與 localStorage，沒有再加入框架或圖示套件；841 input tokens、2,149 output tokens（含 51 reasoning tokens）、21.854 秒、US$0.02747。
+- 第二次回歸仍出現「加入方便初學者閱讀的程式註解」。這會把目標客群錯誤轉換成教學式成品；生成規則已改為學習建議只放在作者企劃的 `plan.learning`，正式 Agent Prompt 不因使用者不熟悉 Agent 而要求大量註解、教學說明或額外文件。
 
 ---
 
