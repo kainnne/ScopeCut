@@ -224,6 +224,7 @@
   let draft = loadDraft();
   let selectedFiles = [];
   let currentQuote = null;
+  let currentAgentPrompt = '';
   let toastTimer;
 
   function escapeHtml(value) {
@@ -640,8 +641,21 @@
   function renderResult(generated) {
     const result = createProjectPrompt();
     const plan = generated.plan;
+    const prompt = typeof generated.agent_prompt === 'string' ? {
+      objective: generated.agent_prompt,
+      deliverable: '', requirements: [], content_and_experience: '', tools_and_execution: '', acceptance_criteria: [],
+    } : generated.agent_prompt;
     const namedList = (items) => items.map((item) => `<li><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.purpose)}</span></li>`).join('');
     const reasonedList = (items, key) => items.map((item) => `<li><strong>${escapeHtml(item[key])}</strong><span>${escapeHtml(item.reason)}</span></li>`).join('');
+    const promptList = (items) => items.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+    currentAgentPrompt = [
+      `# 專案目標\n${prompt.objective}`,
+      `# 成品\n${prompt.deliverable}`,
+      `# 核心需求\n${prompt.requirements.map((item) => `- ${item}`).join('\n')}`,
+      `# 內容與體驗\n${prompt.content_and_experience}`,
+      `# 工具與執行\n${prompt.tools_and_execution}`,
+      `# 完成標準\n${prompt.acceptance_criteria.map((item) => `- ${item}`).join('\n')}`,
+    ].join('\n\n');
     stepLabel.textContent = '完成';
     stepName.textContent = 'Project Prompt';
     progress.style.width = '100%';
@@ -649,37 +663,48 @@
     builder.innerHTML = `
       <h2 class="step-title">${escapeHtml(result.projectName)}</h2>
       ${generated.usage ? `<div class="usage-note"><strong>${escapeHtml(generated.usage.points)} 點</strong><span>預估 ${escapeHtml(generated.usage.estimatedPoints)} 點 · ${(Number(generated.usage.latencyMs || 0) / 1000).toFixed(1)} 秒</span></div>` : ''}
+      <section class="result-prompt">
+        <div class="result-prompt-header">
+          <div><span>READY FOR AGENT</span><h3>直接交給 AI Agent</h3></div>
+          <button class="copy-button" type="button" data-action="copy">複製 Prompt</button>
+        </div>
+        <details open>
+          <summary>完整 Prompt</summary>
+          <div class="prompt-outline">
+            <section><h4>專案目標</h4><p>${escapeHtml(prompt.objective)}</p></section>
+            ${prompt.deliverable ? `<section><h4>成品</h4><p>${escapeHtml(prompt.deliverable)}</p></section>` : ''}
+            ${prompt.requirements.length ? `<section><h4>核心需求</h4><ul>${promptList(prompt.requirements)}</ul></section>` : ''}
+            ${prompt.content_and_experience ? `<section><h4>內容與體驗</h4><p>${escapeHtml(prompt.content_and_experience)}</p></section>` : ''}
+            ${prompt.tools_and_execution ? `<section><h4>工具與執行</h4><p>${escapeHtml(prompt.tools_and_execution)}</p></section>` : ''}
+            ${prompt.acceptance_criteria.length ? `<section><h4>完成標準</h4><ul>${promptList(prompt.acceptance_criteria)}</ul></section>` : ''}
+          </div>
+        </details>
+      </section>
       <section class="result-plan">
+        <h3 class="result-section-title">專案說明</h3>
         <div class="result-card result-overview">
-          <span class="result-label">這次規劃的 Project</span>
+          <h3>專案概念</h3>
           <p>${escapeHtml(plan.overview)}</p>
-          <span class="result-label">第一版</span>
+          <h3>第一版</h3>
           <p>${escapeHtml(plan.first_version)}</p>
         </div>
         <div class="result-card">
-          <span class="result-label">功能</span>
+          <h3>核心功能</h3>
           <ul class="direction-list">${namedList(plan.features)}</ul>
         </div>
         <div class="result-card">
-          <span class="result-label">工具與技術</span>
+          <h3>工具與技術</h3>
           <ul class="direction-list">${namedList(plan.tools)}</ul>
         </div>
         <div class="result-card">
-          <span class="result-label">可能需要理解的知識</span>
+          <h3>可能需要理解的知識</h3>
           <ul class="direction-list">${reasonedList(plan.learning, 'topic')}</ul>
         </div>
         <div class="result-card">
-          <span class="result-label">為什麼這樣規劃</span>
+          <h3>為什麼這樣規劃</h3>
           <ul class="direction-list">${reasonedList(plan.rationale, 'decision')}</ul>
         </div>
       </section>
-      <details class="result-prompt">
-        <summary>可直接貼給 Agent 的內容</summary>
-        <div class="result-prompt-body">
-          <button class="copy-button" type="button" data-action="copy">複製</button>
-          <pre id="generated-prompt">${escapeHtml(generated.agent_prompt)}</pre>
-        </div>
-      </details>
       <div class="result-actions">
         <a class="text-button" href="https://github.com/google-gemini/gemini-cli" target="_blank" rel="noreferrer">使用 Gemini CLI ↗</a>
         <button class="text-button" type="button" data-action="edit">修改 Project</button>
@@ -755,7 +780,7 @@
   }
 
   async function copyPrompt() {
-    const text = builder.querySelector('#generated-prompt')?.textContent || '';
+    const text = currentAgentPrompt;
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);

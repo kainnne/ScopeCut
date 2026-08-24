@@ -95,6 +95,7 @@
 - 相同輸入的第二次回歸測試已通過：輸出改為 HTML、CSS、原生 JavaScript 與 localStorage，沒有再加入框架或圖示套件；841 input tokens、2,149 output tokens（含 51 reasoning tokens）、21.854 秒、US$0.02747。
 - 第二次回歸仍出現「加入方便初學者閱讀的程式註解」。這會把目標客群錯誤轉換成教學式成品；生成規則已改為學習建議只放在作者企劃的 `plan.learning`，正式 Agent Prompt 不因使用者不熟悉 Agent 而要求大量註解、教學說明或額外文件。
 - 最終同題回歸測試通過：Agent Prompt 使用 HTML、CSS、原生 JavaScript 與 localStorage，明確排除不必要框架，學習知識只出現在作者企劃，正式 Prompt 不再要求程式註解；912 input tokens、2,238 output tokens（含 130 reasoning tokens）、22.345 秒、US$0.02868。
+- 結果頁閱讀順序改為先呈現高對比、可收合且隨時可複製的 Agent Prompt，再呈現專案說明。Agent Prompt 改為結構化的專案目標、成品、核心需求、內容與體驗、工具與執行、完成標準六段，前端分段閱讀，複製時自動組成一份完整 Markdown Prompt。
 
 ---
 

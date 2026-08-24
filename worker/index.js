@@ -25,11 +25,12 @@ const MODEL_PRICES = {
 const PROJECT_INSTRUCTIONS = [
   '你是 ScopeCut 的 Project 規劃助手。使用者聰明、有想法與熱誠，但不熟悉如何把需求交給 AI Agent。',
   '請把 Project Brief 與附件發展成一個清楚、可執行且不過度複雜的第一版，不要把選擇重新丟回給使用者。',
-  '輸出只有兩個部分：plan 是寫給使用者看的企劃說明；agent_prompt 是可直接貼給另一個 AI Agent 的正式工作內容。',
+  '輸出只有兩個部分：plan 是寫給使用者看的企劃說明；agent_prompt 是可直接貼給另一個 AI Agent 的正式工作內容，並依固定段落分類。',
   'plan 要明確說明這次要做什麼、第一版大致長什麼樣、核心功能、適合的工具與技術、完成時值得理解的知識，以及各項規劃理由。',
   'plan 使用專業但容易理解的文字。每一項都必須針對這個 Project，避免空泛建議、重複內容、把初學者當成不懂思考的人，或同時提供多個相似方案。',
   '技術選擇以足夠完成第一版的最小成熟組合為原則。若成品是無登入、無後端、資料只存在瀏覽器的小型單頁網站，預設使用 HTML、CSS 與原生 JavaScript；除非使用者明確指定、既有專案已使用，或需求本身必須依賴框架，否則不要加入 React、TypeScript、Vite、Tailwind 或圖示套件。不要為了作品集、開發方便或看起來專業而堆疊技術。',
   '使用者是 AI Agent 初學者，不代表成品要變成教學教材。學習建議只放在 plan.learning；除非使用者要求教學內容，agent_prompt 不要要求教學式說明、大量程式註解、額外 README 章節或為展示技術而增加內容。',
+  'agent_prompt 的 objective、deliverable、requirements、content_and_experience、tools_and_execution、acceptance_criteria 必須組成一份完整且不重複的工作內容；每個段落只處理自己的資訊，複製後能一步到位交付 Project。',
   'agent_prompt 要整合 Project 的目的、使用情境、成品形式、核心功能、內容與視覺方向、可用素材、技術選擇和可檢查的完成標準，資訊不足處採取不偏離原意的合理預設。',
   'agent_prompt 不要加入角色扮演、冗長背景設定、通用安全宣告、繁瑣協作流程、回報規則，或使用者沒有要求的登入、資料庫、後台與其他系統。',
   '不要捏造 Project Brief 或附件沒有提供的事實，也不要在結果中反問使用者。',
@@ -97,7 +98,19 @@ const PROJECT_FORMAT = {
         },
         required: ['overview', 'first_version', 'features', 'tools', 'learning', 'rationale'],
       },
-      agent_prompt: { type: 'string' },
+      agent_prompt: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          objective: { type: 'string' },
+          deliverable: { type: 'string' },
+          requirements: { type: 'array', minItems: 3, maxItems: 8, items: { type: 'string' } },
+          content_and_experience: { type: 'string' },
+          tools_and_execution: { type: 'string' },
+          acceptance_criteria: { type: 'array', minItems: 3, maxItems: 8, items: { type: 'string' } },
+        },
+        required: ['objective', 'deliverable', 'requirements', 'content_and_experience', 'tools_and_execution', 'acceptance_criteria'],
+      },
     },
     required: ['plan', 'agent_prompt'],
   },
@@ -588,6 +601,7 @@ function responseText(body) {
 
 function validGeneratedProject(value) {
   const plan = value?.plan;
+  const prompt = value?.agent_prompt;
   const namedItems = (items) => Array.isArray(items)
     && items.every((item) => typeof item?.name === 'string' && typeof item?.purpose === 'string');
   const reasonedItems = (items, key) => Array.isArray(items)
@@ -598,7 +612,14 @@ function validGeneratedProject(value) {
     && namedItems(plan.tools)
     && reasonedItems(plan.learning, 'topic')
     && reasonedItems(plan.rationale, 'decision')
-    && typeof value?.agent_prompt === 'string';
+    && typeof prompt?.objective === 'string'
+    && typeof prompt?.deliverable === 'string'
+    && Array.isArray(prompt?.requirements)
+    && prompt.requirements.every((item) => typeof item === 'string')
+    && typeof prompt?.content_and_experience === 'string'
+    && typeof prompt?.tools_and_execution === 'string'
+    && Array.isArray(prompt?.acceptance_criteria)
+    && prompt.acceptance_criteria.every((item) => typeof item === 'string');
 }
 
 async function settleUsage(env, event, response, status, errorCode = null) {

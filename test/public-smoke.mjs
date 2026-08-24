@@ -62,9 +62,10 @@ const checks = [
   ['輸出分為作者企劃與可直接交給 Agent 的內容', () => {
     assert.match(worker, /required: \['plan', 'agent_prompt'\]/);
     assert.match(worker, /overview[\s\S]*first_version[\s\S]*features[\s\S]*tools[\s\S]*learning[\s\S]*rationale/);
-    assert.match(app, /這次規劃的 Project[\s\S]*功能[\s\S]*工具與技術[\s\S]*為什麼這樣規劃/);
-    assert.match(app, /<details class="result-prompt">[\s\S]*可直接貼給 Agent 的內容[\s\S]*generated\.agent_prompt/);
-    assert.match(app, /data-action="copy"/);
+    assert.match(worker, /objective[\s\S]*deliverable[\s\S]*requirements[\s\S]*content_and_experience[\s\S]*tools_and_execution[\s\S]*acceptance_criteria/);
+    assert.match(app, /直接交給 AI Agent[\s\S]*複製 Prompt[\s\S]*完整 Prompt[\s\S]*專案說明/);
+    assert.match(app, /專案目標[\s\S]*成品[\s\S]*核心需求[\s\S]*內容與體驗[\s\S]*工具與執行[\s\S]*完成標準/);
+    assert.match(app, /currentAgentPrompt/);
     assert.match(worker, /小型單頁網站，預設使用 HTML、CSS 與原生 JavaScript/);
     assert.match(worker, /學習建議只放在 plan\.learning/);
   }],
