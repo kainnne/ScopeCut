@@ -100,6 +100,8 @@
 - 匿名研究後台已擴充 `request_research` 與 `interaction_events`：從 quote 開始記錄固定選項結構、各自由輸入欄位長度、Brief 雜湊與字數、裝置級距、主題、模型用量、成本、點數、延遲、附件類型／大小，以及查看結果、展開 Prompt、複製、返回修改與重新開始等事件。
 - 研究資料不保存完整 Brief、完整生成結果、原始附件或明文 IP；rate limit 與 OTP 的 IP 識別改用 HMAC 雜湊。公開 Dashboard 只顯示整體 Projects、匿名使用者、點數、複製與事件數；個人 Dashboard 只顯示目前瀏覽器；完整 token、美元、研究結構與逐筆事件只對管理者開放。
 - 管理後台唯一允許的信箱改為 `chaos60649@gmail.com`，驗證碼固定由 `ScopeCut <login@auth.kainnne.com>` 寄送；程式常數與 Cloudflare `ALLOWED_EMAILS` 同時限制，避免設定漂移誤開權限。
+- 匿名研究資料的正式環境端到端測試已完成：請求 `req_a935b19b6b3a416ba0cdb11c1eea11ab` 記錄 216 個 Brief 字元、14 個固定選項、5 個自由輸入欄位、桌面裝置、1,047 input tokens、2,646 output tokens（含 68 reasoning tokens）、34.120 秒、US$0.033846、2 點，並成功把一次 Prompt 複製事件連回同一請求；資料不含自由輸入原文。
+- 登入權限正式環境測試已完成：非指定的 `ryanzhu@kainnne.com` 取得 403；`chaos60649@gmail.com` 的驗證碼寄送 API 成功，寄件者為 `login@auth.kainnne.com`。實際輸入信箱中的六位數驗證碼後，才會建立管理 Session。
 
 ---
 
