@@ -91,7 +91,8 @@
 - 已完成 Cloudflare D1 schema、Worker Secret、Worker API 與 GitHub Pages 正式部署，公開網址為 `https://scopecut.kainnne.com/`。
 - 生成結果已固定分為兩個頂層部分：作者可閱讀的 Project 規劃與理由，以及前端可獨立收合、複製並直接交給另一個 Agent 的正式 Prompt。
 - 2026-08-24 Terra 真實模糊需求測試：713 input tokens、2,457 output tokens（含 88 reasoning tokens）、25.683 秒、US$0.03091；成功收斂為今日焦點、快速新增與接下來要做的校園整理工具。
-- 測試發現 Terra 可能因「作品集」情境自動堆疊 React、TypeScript、Vite、Tailwind 與圖示套件。生成規則已改為優先採用足夠完成第一版的最小成熟技術，只有使用者想學或能明顯降低複雜度時才加入框架與套件。
+- 測試發現 Terra 可能因「作品集」情境自動堆疊 React、TypeScript、Vite、Tailwind 與圖示套件。第一次只要求「最小成熟技術」仍不足，模型會以開發方便為框架辯護；因此規則改為：無登入、無後端、資料只存瀏覽器的小型單頁網站預設採 HTML、CSS 與原生 JavaScript，只有使用者指定、既有專案已採用或需求本身必須依賴時才加入框架。
+- 相同輸入的第二次回歸測試已通過：輸出改為 HTML、CSS、原生 JavaScript 與 localStorage，沒有再加入框架或圖示套件；841 input tokens、2,149 output tokens（含 51 reasoning tokens）、21.854 秒、US$0.02747。
 
 ---
 
