@@ -1,60 +1,108 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [html, css, app, worker, wrangler] = await Promise.all([
+const [html, dashboardHtml, css, app, dashboard, worker, schema, wrangler] = await Promise.all([
   readFile(new URL('../public/index.html', import.meta.url), 'utf8'),
+  readFile(new URL('../public/dashboard.html', import.meta.url), 'utf8'),
   readFile(new URL('../public/style.css', import.meta.url), 'utf8'),
   readFile(new URL('../public/app.js', import.meta.url), 'utf8'),
+  readFile(new URL('../public/dashboard.js', import.meta.url), 'utf8'),
   readFile(new URL('../worker/index.js', import.meta.url), 'utf8'),
+  readFile(new URL('../worker/schema.sql', import.meta.url), 'utf8'),
   readFile(new URL('../wrangler.jsonc', import.meta.url), 'utf8'),
 ]);
 
 const checks = [
-  ['公開網址與 canonical 一致', () => assert.match(html, /https:\/\/scopecut\.kainnne\.com\//)],
-  ['首頁呈現新的客製化 AI Project 定位', () => assert.match(html, /免費完成你的[\s\S]*客製化 AI project/)],
-  ['訪客使用九階段 Project 訪談', () => {
+  ['首頁保留九階段客製化 AI Project 訪談', () => {
+    assert.match(html, /免費完成你的[\s\S]*客製化 AI project/);
     assert.match(html, />1 \/ 9</);
-    assert.match(app, /Project 概念[\s\S]*目標與成果[\s\S]*執行條件[\s\S]*確認/);
+    assert.match(app, /Project 概念[\s\S]*目標與成果[\s\S]*其他備註[\s\S]*確認/);
   }],
-  ['不再詢問使用者經驗與完成時間', () => {
-    assert.doesNotMatch(app, /你有多少經驗和時間|一個晚上|一個週末|一週左右/);
+  ['主要輸入使用收合選項並保留自由輸入', () => {
+    assert.match(app, /<details class="option-group"/);
+    assert.match(app, /產品與工具[\s\S]*內容與表達[\s\S]*社群與服務/);
+    assert.match(app, /補充你的想法[\s\S]*情境補充（選填）/);
   }],
-  ['登入畫面說明封閉測試與 Project Brief 保存', () => assert.match(html, /目前僅開放指定測試帳號，Project Brief 已保存/)],
-  ['登入使用六位數 Email 驗證碼', () => {
-    assert.match(html, /autocomplete="one-time-code"/);
-    assert.match(app, /\/api\/auth\/send-code/);
-    assert.match(app, /\/api\/auth\/verify/);
+  ['一般測試生成不要求 Email 登入', () => {
+    assert.doesNotMatch(html, /auth-dialog|Kainnne 測試登入|autocomplete="one-time-code"/);
+    assert.match(app, /\/api\/session/);
+    assert.match(app, /X-ScopeCut-Anonymous/);
+    assert.match(app, /localStorage\.setItem\(ANON_KEY/);
   }],
-  ['付款入口標示為預覽', () => assert.match(html, /購買點數尚未開放[\s\S]*目前僅供預覽/)],
-  ['首頁沒有多餘說明區塊', () => assert.doesNotMatch(html, /how-section|trust-strip|example-section|pricing-section|kainnne-section/)],
-  ['公開前端未連線舊本機 Bridge', () => assert.doesNotMatch(app, /localhost:8788|127\.0\.0\.1:8788/)],
-  ['API session 僅保存在當次瀏覽工作階段', () => assert.match(app, /sessionStorage\.setItem\(SESSION_KEY/)],
-  ['正式 API 已連線且寄件密鑰不在原始碼', () => {
-    assert.match(html, /https:\/\/scopecut-auth\.chaos60649\.workers\.dev/);
-    assert.match(worker, /env\.RESEND_API_KEY/);
-    assert.doesNotMatch(`${html}\n${app}\n${worker}\n${wrangler}`, /re_[A-Za-z0-9]{12,}/);
+  ['附件支援文件、PDF、簡報與試算表', () => {
+    assert.match(app, /id="material-files"/);
+    assert.match(app, /\.pdf,.txt,.md/);
+    assert.match(app, /附件中的圖表、版面或小字很重要/);
+    assert.match(worker, /MAX_TOTAL_FILE_BYTES = 50 \* 1024 \* 1024/);
   }],
-  ['免費點數由後端限制', () => {
-    assert.match(worker, /daily_usage/);
-    assert.match(worker, /daily_usage\.used < \?/);
-    assert.match(app, /\/api\/usage\/consume/);
+  ['生成前先精確估算並顯示模擬點數', () => {
+    assert.match(worker, /\/responses\/input_tokens/);
+    assert.match(app, /\/api\/quote/);
+    assert.match(app, /使用測試點數/);
+    assert.match(worker, /estimated_cost_microusd/);
   }],
-  ['Project Prompt 使用完整 Brief 且不加入通用裝置限制', () => {
-    assert.match(app, /請根據以下 Project Brief/);
-    assert.match(app, /Project 概念[\s\S]*目標使用者與情境[\s\S]*第一版必須包含/);
-    assert.doesNotMatch(app, /手機與電腦上正常操作/);
+  ['每日預算使用保留與實際結算而非固定次數', () => {
+    assert.match(worker, /reserveBudget/);
+    assert.match(worker, /reserved_cost_microusd/);
+    assert.match(worker, /actual_cost_microusd/);
+    assert.match(wrangler, /"DAILY_BUDGET_MICROUSD": "3000000"/);
+    assert.doesNotMatch(wrangler, /DAILY_GENERATION_LIMIT|OPENAI_MAX_OUTPUT_TOKENS/);
   }],
-  ['封閉測試帳號由 Worker 後端限制', () => {
-    assert.match(worker, /allowedEmail\(env, email\)/);
-    assert.match(wrangler, /"ALLOWED_EMAILS"/);
+  ['極大型附件改用 File Search', () => {
+    assert.match(worker, /LONG_CONTEXT_THRESHOLD = 272000/);
+    assert.match(worker, /readingMode = inputTokens > LONG_CONTEXT_THRESHOLD \? 'file_search'/);
+    assert.match(worker, /vector_stores/);
+  }],
+  ['背景生成有五分鐘 timeout 且不使用短 output 限制', () => {
+    assert.match(worker, /background: true/);
+    assert.match(worker, /MODEL_MAX_OUTPUT_TOKENS = 128000/);
+    assert.match(worker, /JOB_TIMEOUT_MS = 5 \* 60 \* 1000/);
+    assert.match(worker, /cleanupStaleJobs/);
+  }],
+  ['輸出分為作者企劃與可直接交給 Agent 的內容', () => {
+    assert.match(worker, /required: \['plan', 'agent_prompt'\]/);
+    assert.match(worker, /overview[\s\S]*first_version[\s\S]*features[\s\S]*tools[\s\S]*learning[\s\S]*rationale/);
+    assert.match(app, /這次規劃的 Project[\s\S]*功能[\s\S]*工具與技術[\s\S]*為什麼這樣規劃/);
+    assert.match(app, /<details class="result-prompt">[\s\S]*可直接貼給 Agent 的內容[\s\S]*generated\.agent_prompt/);
+    assert.match(app, /data-action="copy"/);
+  }],
+  ['預估與實際差異完整保存', () => {
+    assert.match(schema, /prediction_error_microusd/);
+    assert.match(schema, /prediction_error_ratio/);
+    assert.match(worker, /estimatedPoints[\s\S]*prediction/);
+  }],
+  ['公開、個人、管理三層 Dashboard 存在', () => {
+    assert.match(dashboardHtml, /data-tab="public"[\s\S]*data-tab="personal"[\s\S]*data-tab="admin"/);
+    assert.match(worker, /\/api\/stats\/public/);
+    assert.match(worker, /\/api\/stats\/me/);
+    assert.match(worker, /\/api\/admin\/usage/);
+  }],
+  ['公開與個人 Dashboard 不回傳美元和 token', () => {
+    assert.match(dashboard, /money\(microusd\)/);
+    assert.match(worker, /async function adminStats/);
+    assert.doesNotMatch(worker.match(/async function publicStats[\s\S]*?async function personalStats/)?.[0] || '', /actual_cost_microusd:\s|input_tokens:/);
+  }],
+  ['管理 Dashboard 使用 Kainnne OTP 且金鑰不在原始碼', () => {
+    assert.match(dashboard, /\/api\/auth\/send-code/);
+    assert.match(dashboard, /\/api\/auth\/verify/);
+    assert.match(worker, /ScopeCut <login@auth\.kainnne\.com>/);
+    assert.match(worker, /env\.OPENAI_API_KEY/);
+    assert.doesNotMatch(`${html}\n${app}\n${dashboard}\n${worker}\n${wrangler}`, /sk-[A-Za-z0-9_-]{12,}|re_[A-Za-z0-9]{12,}/);
+  }],
+  ['用量資料採單一 D1 schema 與研究事件表', () => {
+    assert.match(schema, /CREATE TABLE IF NOT EXISTS anonymous_users/);
+    assert.match(schema, /CREATE TABLE IF NOT EXISTS usage_events/);
+    assert.match(schema, /CREATE TABLE IF NOT EXISTS daily_system_usage/);
+    assert.match(schema, /CREATE TABLE IF NOT EXISTS runtime_config/);
   }],
   ['手機版與 reduced motion 樣式存在', () => {
     assert.match(css, /@media \(max-width: 620px\)/);
     assert.match(css, /prefers-reduced-motion/);
+    assert.match(css, /dashboard-panel/);
   }],
 ];
 
-console.log('\n公開前端 smoke tests');
+console.log('\nScopeCut public smoke tests');
 for (const [label, check] of checks) {
   check();
   console.log(`  ✓ ${label}`);

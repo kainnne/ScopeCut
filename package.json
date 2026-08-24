@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node server/server.js",
-    "test": "node test/public-smoke.mjs && node test/run-tests.mjs",
+    "test": "node test/public-smoke.mjs && node test/usage-cost.mjs && node test/run-tests.mjs",
     "test:public": "node test/public-smoke.mjs"
   },
   "dependencies": {
