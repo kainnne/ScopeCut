@@ -15,7 +15,7 @@
 - 測試階段的一般生成不要求登入；草稿保存在瀏覽器，並以簽署的匿名識別碼保存個人模擬用量。未來正式版再恢復「完成 Brief 後才要求 Email 驗證」的流程。
 - Kainnne 管理 Dashboard 仍需使用 Email OTP 或 Cloudflare Access 保護；若沿用 Email OTP，驗證碼由 Cloudflare Worker 經 Resend 寄送，寄件人為 `ScopeCut <login@auth.kainnne.com>`，寄信密鑰不進入前端。
 - 2026-08-24 起，測試版隱藏付款介面，但顯示不收費的模擬點數；一般使用者可直接呼叫 OpenAI Responses API，後台仍執行匿名限流與全站美元預算保護。
-- 測試模型暫定 `gpt-5.6-luna`。不以過短的 output token 上限壓縮結果；先以模型完整上下文與最大輸出估算單次最壞成本，再依實際生成品質與五分鐘完成目標調整 reasoning 與檔案讀取方式。
+- 測試模型確立為 `gpt-5.6-terra`，使用 `reasoning.effort: medium`。現階段優先驗證 ScopeCut 的需求收斂與 Prompt 品質，不以較低模型成本犧牲第一次使用的可信度；Luna 留作累積案例後的盲測候選。
 - 「每日 50 次」目前只作為成本試算情境，不是正式硬限制。正式流量與每日預算上限要等檔案 token 成本、實際回應用量與測試延遲都有數據後再決定。
 - OpenAI API key 只能存放在 Cloudflare Worker secret，不得寫入前端、Git 或 `wrangler.jsonc`。
 
@@ -23,9 +23,9 @@
 
 ### 成本目標與模型
 
-- 預設模型使用 `gpt-5.6-luna`；ScopeCut 的主要任務是整理 Project Brief、規劃專案方向並生成可直接交給 Agent 的 Prompt，先以 `reasoning.effort: low` 測試品質與延遲。
+- 預設模型使用 `gpt-5.6-terra` 與 `reasoning.effort: medium`；ScopeCut 的主要任務不是一般摘要，而是替模糊 Project Brief 做產品判斷、收斂第一版並生成可直接交給 Agent 的 Prompt。
 - 平均每次成功生成的實際 API 成本目標為 NT$1 以內，內部暫以 US$0.03 作為一點的成本基準；此換算只供系統計算，不向一般使用者顯示美元。
-- `gpt-5.6-terra` 不作為預設模型。未來只有 Luna 品質測試不及格、使用者主動選擇更好模型，或重新生成仍失敗時才考慮 Terra，並按較高點數計算。
+- 不在一般使用者介面提供模型選擇。累積 20 至 50 個真實案例後，以相同輸入對 Terra／Luna 進行盲測；評估需求收斂、理由具體、Prompt 可執行與是否過度擴張。Luna 達到 Terra 約九成品質後，才考慮路由需求明確、無附件的一般案件。
 - 每日全站實際 API 花費與尚未完成請求的保留額度合計，不得高於 US$3。這是測試階段真正的後台預算門檻；「每日 50 次」只保留為報表試算情境。
 - 不以過短 output 上限犧牲結果。生成前按照本次 input tokens、模型費率、長上下文加價與模型最大輸出計算最壞成本並暫時保留；生成完成後改以 Responses API 回傳的實際 input、cached input、reasoning、output 與工具用量結算，釋放未使用的保留額度。
 - 若當日剩餘預算不足以容納新請求的最壞保留額度，請求進入短暫等待；仍不足時顯示「今天的測試額度已使用完畢，請明天再試」，不得靜默縮短輸出。
@@ -34,7 +34,7 @@
 ### Input 與大型附件路由
 
 - 每次生成前先用 `/responses/input_tokens` 計算表單、固定指令與附件合計的 input tokens，不以檔案 MB 或頁數直接推算成本。
-- 100K input tokens 以下原則上整份直接讀取，這是 Luna 在一般輸出量下維持每次約一點成本的重要目標區間。
+- 100K input tokens 以下原則上整份直接讀取；仍須依 Terra 的實際輸入與輸出費用估算點數，不因資料屬於一般規模就固定視為一點。
 - 100K 至 272K 仍可直接讀取，但前端先顯示較高的模擬點數，後台記錄為 elevated。
 - 超過 272K 會觸發長上下文加價，預設改用 File Search、文件章節地圖與相關段落檢索；不是截斷 output，也不任意刪掉使用者內容。
 - PDF 文字型資料預設使用較低頁面圖像細節，保留完整抽取文字；圖表、設計稿、簡報與版面資訊重要時才使用高視覺細節。
@@ -52,7 +52,7 @@
 - normal：實際成本不高於 US$0.03，目標為一點，若全部都是 normal，US$3 理論上可支援約 100 次／日。
 - elevated：高於 US$0.03 且不高於 US$0.09，約二至三點，若全部都是 elevated，理論上約 33 次／日。
 - heavy：高於 US$0.09 且不高於 US$0.30，約四至十點，若全部都是 heavy，理論上約 10 次／日。
-- extreme：高於 US$0.30，最高依 Luna 模型完整容量約 US$0.60 至 US$0.65；若全部都是 extreme，US$3 理論上只能完成約 4 次／日。
+- extreme：高於 US$0.30；每日能完成的數量完全依 Terra 的實際 input、output、長上下文加價與工具用量決定，不再沿用 Luna 的舊成本上限假設。
 - 每日不預先固定只能有幾次 extreme；後台以當日實際花費加保留額度原子性阻擋超支，並在日報中記錄各分級次數、最高單次成本、平均成本、p50／p95 延遲與 timeout 次數。
 - 若最近 20 次成功生成的移動平均高於 US$0.03，先調整附件路由、PDF 視覺讀取與 File Search 策略；不得直接壓縮最終 Prompt 的品質與完整度。
 
@@ -88,7 +88,10 @@
 - 已記錄預估／實際 input、output、reasoning、cached tokens、成本差額、成本倍率、點數差異、附件規模、讀取模式、模型、延遲與錯誤原因，供後續研究。
 - 已完成公開、匿名個人與 Kainnne 管理三層 Dashboard；管理頁可依匿名帳號展開彙總，也可展開每次請求的詳細用量。
 - 已完成桌面與 390px 手機版瀏覽器檢查，並通過成本公式、公開前端與既有專案共 17 項完整測試。
-- 以上目前都只在本機工作區，尚未套用遠端 D1 schema、設定 OpenAI API key 或部署 Worker／前端。正式測試必須等管理者自行建立 API key 並設定 Worker secret。
+- 已完成 Cloudflare D1 schema、Worker Secret、Worker API 與 GitHub Pages 正式部署，公開網址為 `https://scopecut.kainnne.com/`。
+- 生成結果已固定分為兩個頂層部分：作者可閱讀的 Project 規劃與理由，以及前端可獨立收合、複製並直接交給另一個 Agent 的正式 Prompt。
+- 2026-08-24 Terra 真實模糊需求測試：713 input tokens、2,457 output tokens（含 88 reasoning tokens）、25.683 秒、US$0.03091；成功收斂為今日焦點、快速新增與接下來要做的校園整理工具。
+- 測試發現 Terra 可能因「作品集」情境自動堆疊 React、TypeScript、Vite、Tailwind 與圖示套件。生成規則已改為優先採用足夠完成第一版的最小成熟技術，只有使用者想學或能明顯降低複雜度時才加入框架與套件。
 
 ---
 

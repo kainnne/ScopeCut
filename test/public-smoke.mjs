@@ -65,6 +65,7 @@ const checks = [
     assert.match(app, /這次規劃的 Project[\s\S]*功能[\s\S]*工具與技術[\s\S]*為什麼這樣規劃/);
     assert.match(app, /<details class="result-prompt">[\s\S]*可直接貼給 Agent 的內容[\s\S]*generated\.agent_prompt/);
     assert.match(app, /data-action="copy"/);
+    assert.match(worker, /技術選擇以足夠完成第一版的最小成熟組合/);
   }],
   ['預估與實際差異完整保存', () => {
     assert.match(schema, /prediction_error_microusd/);
