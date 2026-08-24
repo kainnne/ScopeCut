@@ -8,9 +8,9 @@
   },
   "vars": {
     "ALLOWED_ORIGINS": "https://scopecut.kainnne.com,https://kainnne.github.io,http://localhost:8788",
-    "ALLOWED_EMAILS": "ryanzhu@kainnne.com",
+    "ALLOWED_EMAILS": "chaos60649@gmail.com",
     "AUTH_FROM": "ScopeCut <login@auth.kainnne.com>",
-    "AUTH_REPLY_TO": "ryanzhu@kainnne.com",
+    "AUTH_REPLY_TO": "chaos60649@gmail.com",
     "OPENAI_MODEL": "gpt-5.6-terra",
     "OPENAI_REASONING_EFFORT": "medium",
     "PREDICTED_OUTPUT_TOKENS": "8000",

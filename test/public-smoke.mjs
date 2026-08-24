@@ -74,11 +74,21 @@ const checks = [
     assert.match(schema, /prediction_error_ratio/);
     assert.match(worker, /estimatedPoints[\s\S]*prediction/);
   }],
+  ['匿名研究記錄選項結構與使用後操作', () => {
+    assert.match(schema, /CREATE TABLE IF NOT EXISTS request_research/);
+    assert.match(schema, /CREATE TABLE IF NOT EXISTS interaction_events/);
+    assert.match(worker, /\/api\/events/);
+    assert.match(worker, /RESEARCH_EVENTS/);
+    assert.match(app, /researchMetadata\(\)/);
+    assert.match(app, /prompt_copied[\s\S]*project_edit[\s\S]*project_restart/);
+    assert.match(html, /不保存原始附件、明文 IP 或完整自由輸入內容/);
+  }],
   ['公開、個人、管理三層 Dashboard 存在', () => {
     assert.match(dashboardHtml, /data-tab="public"[\s\S]*data-tab="personal"[\s\S]*data-tab="admin"/);
     assert.match(worker, /\/api\/stats\/public/);
     assert.match(worker, /\/api\/stats\/me/);
     assert.match(worker, /\/api\/admin\/usage/);
+    assert.match(dashboardHtml, /研究摘要[\s\S]*生成紀錄[\s\S]*操作事件/);
   }],
   ['公開與個人 Dashboard 不回傳美元和 token', () => {
     assert.match(dashboard, /money\(microusd\)/);
@@ -88,7 +98,10 @@ const checks = [
   ['管理 Dashboard 使用 Kainnne OTP 且金鑰不在原始碼', () => {
     assert.match(dashboard, /\/api\/auth\/send-code/);
     assert.match(dashboard, /\/api\/auth\/verify/);
-    assert.match(worker, /ScopeCut <login@auth\.kainnne\.com>/);
+    assert.match(worker, /AUTH_SENDER = 'ScopeCut <login@auth\.kainnne\.com>'/);
+    assert.match(worker, /ADMIN_EMAIL = 'chaos60649@gmail\.com'/);
+    assert.match(wrangler, /"ALLOWED_EMAILS": "chaos60649@gmail\.com"/);
+    assert.match(dashboardHtml, /value="chaos60649@gmail\.com" readonly/);
     assert.match(worker, /env\.OPENAI_API_KEY/);
     assert.doesNotMatch(`${html}\n${app}\n${dashboard}\n${worker}\n${wrangler}`, /sk-[A-Za-z0-9_-]{12,}|re_[A-Za-z0-9]{12,}/);
   }],

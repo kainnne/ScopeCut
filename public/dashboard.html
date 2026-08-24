@@ -22,7 +22,7 @@
     </header>
 
     <main class="dashboard-main section-shell">
-      <div class="dashboard-heading"><h1>Usage</h1><span id="dashboard-day"></span></div>
+      <div class="dashboard-heading"><div><h1>Usage</h1><p>匿名用量與 ScopeCut 研究資料</p></div><span id="dashboard-day"></span></div>
       <nav class="dashboard-tabs" aria-label="用量頁面">
         <button class="is-active" type="button" data-tab="public">公開</button>
         <button type="button" data-tab="personal">我的</button>
@@ -30,11 +30,13 @@
       </nav>
 
       <section class="dashboard-panel" data-panel="public">
+        <div class="dashboard-section-heading"><h2>今日公開狀態</h2><span>不顯示美元、token 或匿名識別碼</span></div>
         <div class="metric-grid" id="public-metrics"><p class="empty-state">載入中</p></div>
         <div class="band-grid" id="public-bands"></div>
       </section>
 
       <section class="dashboard-panel hidden" data-panel="personal">
+        <div class="dashboard-section-heading"><h2>這個瀏覽器</h2><span>以匿名識別碼保存，清除瀏覽器資料後無法復原</span></div>
         <div class="metric-grid" id="personal-metrics"><p class="empty-state">載入中</p></div>
         <div class="usage-history" id="personal-history"></div>
       </section>
@@ -42,20 +44,28 @@
       <section class="dashboard-panel hidden" data-panel="admin">
         <div id="admin-login">
           <form class="admin-auth" id="admin-email-form">
-            <input id="admin-email" type="email" autocomplete="email" placeholder="Kainnne Email" required />
+            <input id="admin-email" type="email" autocomplete="email" value="chaos60649@gmail.com" readonly required />
             <button type="submit">寄送驗證碼</button>
           </form>
           <form class="admin-auth hidden" id="admin-code-form">
             <input id="admin-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="六位驗證碼" required />
             <button type="submit">進入管理頁</button>
           </form>
-          <small id="admin-auth-status"></small>
+          <small id="admin-auth-status">驗證碼只寄至 chaos60649@gmail.com，寄件人為 login@auth.kainnne.com</small>
         </div>
         <div class="hidden" id="admin-content">
           <div class="admin-toolbar"><input id="admin-day" type="date" /><button type="button" id="admin-refresh">更新</button></div>
+          <div class="dashboard-section-heading"><h2>成本與模型</h2><span>僅管理者可見</span></div>
           <div class="metric-grid admin-metrics" id="admin-metrics"></div>
+          <div class="dashboard-section-heading"><h2>研究摘要</h2><span>只保存結構與長度，不保存原始 Brief</span></div>
+          <div class="metric-grid admin-metrics" id="admin-research"></div>
+          <div class="research-event-grid" id="admin-interaction-counts"></div>
+          <div class="dashboard-section-heading"><h2>匿名使用者</h2><span>依瀏覽器識別碼彙總</span></div>
           <div class="admin-users" id="admin-users"></div>
+          <div class="dashboard-section-heading"><h2>生成紀錄</h2><span>成本、token、附件與研究結構</span></div>
           <div class="admin-events" id="admin-events"></div>
+          <div class="dashboard-section-heading"><h2>操作事件</h2><span>複製、展開、修改與重新開始</span></div>
+          <div class="admin-interactions" id="admin-interactions"></div>
         </div>
       </section>
     </main>

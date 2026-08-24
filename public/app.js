@@ -5,6 +5,7 @@
   const LEGACY_DRAFT_KEY = 'scopecut_public_draft_v1';
   const MOOD_KEY = 'scopecut_mood';
   const ANON_KEY = 'scopecut_anonymous_v1';
+  const PAGE_SESSION_KEY = 'scopecut_page_session_v1';
   const API_BASE = document.querySelector('meta[name="scopecut-api-base"]')?.content.replace(/\/$/, '') || '';
 
   const copy = {
@@ -225,7 +226,18 @@
   let selectedFiles = [];
   let currentQuote = null;
   let currentAgentPrompt = '';
+  let currentRequestId = null;
   let toastTimer;
+
+  function pageSessionId() {
+    try {
+      const existing = sessionStorage.getItem(PAGE_SESSION_KEY);
+      if (existing) return existing;
+      const created = `web_${crypto.randomUUID().replaceAll('-', '')}`;
+      sessionStorage.setItem(PAGE_SESSION_KEY, created);
+      return created;
+    } catch { return 'web_unknown'; }
+  }
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -281,6 +293,37 @@
   function saveDraft() {
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    } catch {}
+  }
+
+  function researchMetadata() {
+    const fieldLengths = {};
+    for (const key of ['projectName', 'idea', 'objective', 'audience', 'scenario', 'formatOther', 'core', 'styleNotes', 'materials', 'references', 'notes']) {
+      fieldLengths[key] = String(draft[key] || '').length;
+    }
+    return {
+      selections: {
+        projectTypes: draft.projectTypes, purpose: draft.purpose, audienceTypes: draft.audienceTypes,
+        scenarioTypes: draft.scenarioTypes, format: draft.format, features: draft.features,
+        priorities: draft.priorities, styles: draft.styles, materialTypes: draft.materialTypes,
+      },
+      fieldLengths,
+      client: {
+        viewport: window.matchMedia('(max-width: 620px)').matches ? 'mobile' : 'desktop',
+        theme: document.documentElement.dataset.mood || 'dream',
+        language: navigator.language || 'unknown',
+      },
+    };
+  }
+
+  async function trackEvent(eventName, metadata = {}, requestId = currentRequestId) {
+    try {
+      const token = await ensureAnonymousToken();
+      await apiRequest('/api/events', {
+        method: 'POST',
+        headers: { 'X-ScopeCut-Anonymous': token },
+        body: JSON.stringify({ event: eventName, requestId, sessionId: pageSessionId(), metadata }),
+      });
     } catch {}
   }
 
@@ -621,6 +664,7 @@
         <button class="next-button" type="button" data-action="confirm-generation">使用測試點數 →</button>
       </div>
     `;
+    trackEvent('quote_viewed', { estimatedPoints: quote.estimatedPoints, inputSize: quote.inputSize, readingMode: quote.readingMode }, quote.quoteId);
   }
 
   function renderGenerating(status = '正在整理你的 Project') {
@@ -638,7 +682,8 @@
     document.querySelector('#builder-shell').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function renderResult(generated) {
+  function renderResult(generated, requestId) {
+    currentRequestId = requestId;
     const result = createProjectPrompt();
     const plan = generated.plan;
     const prompt = typeof generated.agent_prompt === 'string' ? {
@@ -711,6 +756,9 @@
         <button class="text-button" type="button" data-action="restart">重新開始</button>
       </div>
     `;
+    const promptDetails = builder.querySelector('.result-prompt details');
+    promptDetails?.addEventListener('toggle', () => trackEvent('prompt_toggled', { open: promptDetails.open }));
+    trackEvent('result_viewed');
     document.querySelector('#builder-shell').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -732,6 +780,7 @@
       const form = new FormData();
       form.append('brief', brief.prompt);
       form.append('visualDetail', draft.materialVisual ? 'high' : 'low');
+      form.append('researchMeta', JSON.stringify(researchMetadata()));
       selectedFiles.forEach((file) => form.append('files', file, file.name));
       const quote = await apiRequest('/api/quote', {
         method: 'POST',
@@ -760,6 +809,8 @@
         headers: { 'X-ScopeCut-Anonymous': token },
         body: JSON.stringify({ quoteId: currentQuote.quoteId, brief: brief.prompt }),
       });
+      currentRequestId = started.jobId;
+      trackEvent('generation_started', {}, started.jobId);
       const startedAt = Date.now();
       while (Date.now() - startedAt < 5 * 60 * 1000 + 15000) {
         await new Promise((resolve) => window.setTimeout(resolve, 2500));
@@ -768,7 +819,7 @@
         });
         if (result.status === 'completed') {
           currentQuote = null;
-          renderResult(result);
+          renderResult(result, started.jobId);
           return;
         }
       }
@@ -794,6 +845,7 @@
       document.execCommand('copy');
       input.remove();
     }
+    trackEvent('prompt_copied', { promptCharacters: text.length });
     showToast('已複製 Project Prompt');
   }
 
@@ -837,18 +889,26 @@
       return renderStep();
     }
     if (action === 'copy') return copyPrompt();
-    if (action === 'edit') return goToStep(0);
+    if (action === 'edit') {
+      trackEvent('project_edit');
+      return goToStep(0);
+    }
     if (action === 'restart') {
+      trackEvent('project_restart');
       draft = emptyDraft();
       selectedFiles = [];
       currentQuote = null;
+      currentRequestId = null;
       saveDraft();
       renderStep();
       return scrollToBuilder();
     }
   });
 
-  document.querySelectorAll('[data-start]').forEach((button) => button.addEventListener('click', scrollToBuilder));
+  document.querySelectorAll('[data-start]').forEach((button) => button.addEventListener('click', () => {
+    trackEvent('builder_started', { source: 'hero' }, null);
+    scrollToBuilder();
+  }));
 
   async function apiRequest(path, options = {}, jsonBody = true) {
     if (!API_BASE) throw new Error('AI 服務尚未上線');

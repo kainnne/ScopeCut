@@ -439,6 +439,16 @@ a {
   backdrop-filter: blur(28px) saturate(1.2);
 }
 
+.research-disclosure {
+  max-width: 720px;
+  margin: 14px auto 0;
+  color: var(--soft);
+  text-align: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
 .builder-topbar {
   min-height: 78px;
   padding: 17px 24px;
@@ -1110,6 +1120,13 @@ a {
   font: 700 clamp(3rem, 9vw, 6rem) "Comfortaa", sans-serif;
 }
 
+.dashboard-heading p {
+  margin: 8px 0 0;
+  color: var(--soft);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
 .dashboard-heading span {
   padding-bottom: 10px;
   color: var(--soft);
@@ -1147,6 +1164,30 @@ a {
   background: var(--glass);
   box-shadow: var(--shadow);
   backdrop-filter: blur(24px);
+}
+
+.dashboard-section-heading {
+  margin: 28px 0 12px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dashboard-section-heading:first-child {
+  margin-top: 0;
+}
+
+.dashboard-section-heading h2 {
+  margin: 0;
+  color: var(--strong);
+  font: 700 clamp(1rem, 3vw, 1.35rem) "Comfortaa", sans-serif;
+}
+
+.dashboard-section-heading span {
+  color: var(--soft);
+  font-size: 0.58rem;
+  font-weight: 700;
 }
 
 .metric-grid {
@@ -1207,11 +1248,49 @@ a {
 
 .usage-history,
 .admin-users,
-.admin-events {
+.admin-events,
+.admin-interactions {
   margin-top: 15px;
   display: grid;
   gap: 7px;
 }
+
+.research-event-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.research-event-grid > div {
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.research-event-grid span { color: var(--soft); font-size: 0.6rem; font-weight: 700; }
+.research-event-grid strong { color: var(--strong); font: 700 0.75rem "DM Mono", monospace; }
+
+.interaction-row {
+  padding: 13px 15px;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.7fr) minmax(0, 1.3fr);
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.interaction-row > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.interaction-row strong { color: var(--strong); font-size: 0.7rem; }
+.interaction-row span,
+.interaction-row small { overflow-wrap: anywhere; color: var(--soft); font: 500 0.56rem/1.5 "DM Mono", monospace; }
 
 .admin-users {
   margin-top: 18px;
@@ -1534,6 +1613,9 @@ a {
   .band-grid { grid-template-columns: 1fr 1fr; }
   .admin-event dl { grid-template-columns: 1fr; }
   .admin-auth { grid-template-columns: 1fr; }
+  .dashboard-section-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .research-event-grid { grid-template-columns: 1fr 1fr; }
+  .interaction-row { grid-template-columns: 1fr; gap: 7px; }
 
   .modal {
     padding: 42px 20px 25px;

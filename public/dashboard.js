@@ -4,10 +4,21 @@
   const ANON_KEY = 'scopecut_anonymous_v1';
   const ADMIN_KEY = 'scopecut_admin_v1';
   const MOOD_KEY = 'scopecut_mood';
+  const PAGE_SESSION_KEY = 'scopecut_dashboard_session_v1';
   const API_BASE = document.querySelector('meta[name="scopecut-api-base"]')?.content.replace(/\/$/, '') || '';
   const toast = document.querySelector('#toast');
   let pendingEmail = '';
   let toastTimer;
+
+  function pageSessionId() {
+    try {
+      const existing = sessionStorage.getItem(PAGE_SESSION_KEY);
+      if (existing) return existing;
+      const created = `dash_${crypto.randomUUID().replaceAll('-', '')}`;
+      sessionStorage.setItem(PAGE_SESSION_KEY, created);
+      return created;
+    } catch { return 'dash_unknown'; }
+  }
 
   function escapeHtml(value) {
     return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
@@ -47,12 +58,36 @@
     return session.token;
   }
 
+  async function track(eventName) {
+    try {
+      const token = await anonymousToken();
+      await api('/api/events', {
+        method: 'POST', headers: { 'X-ScopeCut-Anonymous': token },
+        body: JSON.stringify({ event: eventName, sessionId: pageSessionId() }),
+      });
+    } catch {}
+  }
+
   function metric(label, value, note = '') {
     return `<article class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${note ? `<small>${escapeHtml(note)}</small>` : ''}</article>`;
   }
 
   const bandNames = { normal: '一般', elevated: '較高', heavy: '大量', extreme: '極端' };
-  const statusNames = { quoted: '已估算', running: '產生中', completed: '完成', failed: '失敗', timeout: '逾時' };
+  const statusNames = { quoted: '已估算', running: '產生中', completed: '完成', failed: '失敗', timeout: '逾時', expired: '已過期' };
+  const eventNames = {
+    builder_started: '開始訪談', quote_viewed: '查看點數', generation_started: '開始生成', result_viewed: '查看結果',
+    prompt_toggled: '展開／收合 Prompt', prompt_copied: '複製 Prompt', project_edit: '返回修改', project_restart: '重新開始',
+    dashboard_public_viewed: '查看公開用量', dashboard_personal_viewed: '查看個人用量',
+  };
+
+  function parseObject(value) {
+    try { return JSON.parse(value || '{}'); } catch { return {}; }
+  }
+
+  function compactJson(value) {
+    const entries = Object.entries(parseObject(value)).filter(([, item]) => Array.isArray(item) ? item.length : item !== '' && item != null);
+    return entries.length ? entries.map(([key, item]) => `${key}: ${Array.isArray(item) ? item.join(', ') : item}`).join(' · ') : '—';
+  }
 
   async function loadPublic() {
     const data = await api('/api/stats/public');
@@ -61,9 +96,13 @@
       metric('服務', data.service === 'available' ? '可使用' : data.service === 'busy' ? '較忙碌' : '今日暫停'),
       metric('完成', data.generated, 'Projects'),
       metric('測試點數', data.points, '不代表美元'),
+      metric('匿名使用者', data.users),
+      metric('Prompt 複製', data.copies),
+      metric('操作事件', data.interactions),
     ].join('');
     document.querySelector('#public-bands').innerHTML = Object.entries(data.bands)
       .map(([band, count]) => `<div class="band ${band}"><span>${bandNames[band]}</span><strong>${count}</strong></div>`).join('');
+    track('dashboard_public_viewed');
   }
 
   async function loadPersonal(retry = true) {
@@ -73,12 +112,15 @@
       document.querySelector('#personal-metrics').innerHTML = [
         metric('今日完成', data.generated),
         metric('今日點數', data.points),
+        metric('Prompt 複製', data.copies),
+        metric('操作事件', data.interactions),
       ].join('');
       document.querySelector('#personal-history').innerHTML = data.history.length ? data.history.map((item) => `
         <article class="history-row">
           <div><strong>${escapeHtml(statusNames[item.status] || item.status)}</strong><span>${new Date(item.createdAt).toLocaleString('zh-TW')}</span></div>
-          <div><strong>${item.actualPoints || item.estimatedPoints} 點</strong><span>預估 ${item.estimatedPoints} · ${item.fileCount} 附件</span></div>
+          <div><strong>${item.actualPoints || item.estimatedPoints} 點</strong><span>複製 ${item.copies} · 互動 ${item.interactions} · ${item.fileCount} 附件</span></div>
         </article>`).join('') : '<p class="empty-state">目前沒有用量紀錄</p>';
+      track('dashboard_personal_viewed');
     } catch (error) {
       if (error.status === 401 && retry) {
         localStorage.removeItem(ANON_KEY);
@@ -101,6 +143,8 @@
       document.querySelector('#admin-content').classList.remove('hidden');
       document.querySelector('#admin-day').value = data.day;
       const summary = data.summary || {};
+      const research = data.research || {};
+      const interactionTotal = Object.values(data.interactionCounts || {}).reduce((total, value) => total + Number(value || 0), 0);
       const average = Number(summary.success_count || 0) ? Number(summary.actual_cost_microusd || 0) / Number(summary.success_count) : 0;
       document.querySelector('#admin-metrics').innerHTML = [
         metric('實際成本', money(summary.actual_cost_microusd), `預算 ${money(data.budgetMicrousd)}`),
@@ -110,6 +154,17 @@
         metric('Input', tokens(summary.input_tokens), 'tokens'),
         metric('Output', tokens(summary.output_tokens), `reasoning ${tokens(summary.reasoning_tokens)}`),
       ].join('');
+      document.querySelector('#admin-research').innerHTML = [
+        metric('研究請求', research.request_count || 0),
+        metric('平均 Brief', Math.round(Number(research.average_brief_characters || 0)), 'characters'),
+        metric('平均選項', Number(research.average_selected_options || 0).toFixed(1)),
+        metric('平均自由欄位', Number(research.average_free_text_fields || 0).toFixed(1)),
+        metric('手機／桌面', `${research.mobile_count || 0}／${research.desktop_count || 0}`),
+        metric('操作事件', interactionTotal),
+      ].join('');
+      document.querySelector('#admin-interaction-counts').innerHTML = Object.entries(data.interactionCounts || {}).length
+        ? Object.entries(data.interactionCounts).map(([name, count]) => `<div><span>${escapeHtml(eventNames[name] || name)}</span><strong>${count}</strong></div>`).join('')
+        : '<p class="empty-state">尚無操作事件</p>';
       document.querySelector('#admin-users').innerHTML = data.users.length ? data.users.map((user) => `
         <details class="admin-event admin-user">
           <summary><span>${escapeHtml(user.anon_id)}</span><strong>${money(user.actual_cost_microusd)}</strong></summary>
@@ -121,6 +176,8 @@
             <div><dt>Reasoning</dt><dd>${tokens(user.reasoning_tokens)}</dd></div>
             <div><dt>平均延遲</dt><dd>${user.average_latency_ms == null ? '—' : `${(user.average_latency_ms / 1000).toFixed(1)} 秒`}</dd></div>
             <div><dt>最高單次</dt><dd>${money(user.max_cost_microusd)}</dd></div>
+            <div><dt>Prompt 複製</dt><dd>${user.copies || 0}</dd></div>
+            <div><dt>操作事件</dt><dd>${user.interactions || 0}</dd></div>
           </dl>
         </details>`).join('') : '';
       document.querySelector('#admin-events').innerHTML = data.events.length ? data.events.map((item) => `
@@ -134,9 +191,20 @@
             <div><dt>成本差</dt><dd>${money(item.prediction_error_microusd)} · ${item.prediction_error_ratio == null ? '—' : `${Number(item.prediction_error_ratio).toFixed(2)}×`}</dd></div>
             <div><dt>附件</dt><dd>${item.file_count} 個 · ${tokens(item.total_file_bytes)} bytes</dd></div>
             <div><dt>延遲</dt><dd>${item.latency_ms == null ? '—' : `${(item.latency_ms / 1000).toFixed(1)} 秒`}</dd></div>
+            <div><dt>Brief</dt><dd>${item.brief_characters == null ? '舊紀錄' : `${tokens(item.brief_characters)} 字元`}</dd></div>
+            <div><dt>選項／自由欄位</dt><dd>${item.selected_option_count ?? '—'}／${item.free_text_field_count ?? '—'}</dd></div>
+            <div><dt>Prompt 複製</dt><dd>${item.copy_count || 0}</dd></div>
+            <div><dt>操作事件</dt><dd>${item.interaction_count || 0}</dd></div>
+            <div><dt>選擇結構</dt><dd>${escapeHtml(compactJson(item.selections_json))}</dd></div>
+            <div><dt>欄位長度</dt><dd>${escapeHtml(compactJson(item.field_lengths_json))}</dd></div>
+            <div><dt>裝置</dt><dd>${escapeHtml(compactJson(item.client_json))}</dd></div>
             <div><dt>錯誤</dt><dd>${escapeHtml(item.error_code || '—')}</dd></div>
           </dl>
         </details>`).join('') : '<p class="empty-state">這一天沒有紀錄</p>';
+      document.querySelector('#admin-interactions').innerHTML = data.interactions.length ? data.interactions.map((item) => {
+        const metadata = compactJson(item.metadata_json);
+        return `<article class="interaction-row"><div><strong>${escapeHtml(eventNames[item.event_name] || item.event_name)}</strong><span>${new Date(item.created_at).toLocaleString('zh-TW')}</span></div><div><span>${escapeHtml(item.anon_id)}</span><small>${escapeHtml(item.request_id || item.session_id)} · ${escapeHtml(metadata)}</small></div></article>`;
+      }).join('') : '<p class="empty-state">這一天沒有操作事件</p>';
     } catch (error) {
       if (error.status === 401) sessionStorage.removeItem(ADMIN_KEY);
       showToast(error.message);
@@ -152,7 +220,7 @@
 
   document.querySelector('#admin-email-form').addEventListener('submit', async (event) => {
     event.preventDefault();
-    pendingEmail = document.querySelector('#admin-email').value.trim();
+    pendingEmail = 'chaos60649@gmail.com';
     try {
       await api('/api/auth/send-code', { method: 'POST', body: JSON.stringify({ email: pendingEmail }) });
       document.querySelector('#admin-email-form').classList.add('hidden');

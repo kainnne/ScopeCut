@@ -122,7 +122,42 @@ CREATE TABLE IF NOT EXISTS runtime_config (
   updated_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS request_research (
+  request_id TEXT PRIMARY KEY,
+  anon_id TEXT NOT NULL,
+  day TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  brief_characters INTEGER NOT NULL DEFAULT 0,
+  brief_hash TEXT NOT NULL,
+  selected_option_count INTEGER NOT NULL DEFAULT 0,
+  free_text_field_count INTEGER NOT NULL DEFAULT 0,
+  selections_json TEXT NOT NULL DEFAULT '{}',
+  field_lengths_json TEXT NOT NULL DEFAULT '{}',
+  client_json TEXT NOT NULL DEFAULT '{}',
+  schema_version INTEGER NOT NULL DEFAULT 1,
+  FOREIGN KEY (request_id) REFERENCES usage_events(request_id),
+  FOREIGN KEY (anon_id) REFERENCES anonymous_users(anon_id)
+);
+
+CREATE TABLE IF NOT EXISTS interaction_events (
+  event_id TEXT PRIMARY KEY,
+  anon_id TEXT NOT NULL,
+  request_id TEXT,
+  day TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  session_id TEXT NOT NULL,
+  event_name TEXT NOT NULL,
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  FOREIGN KEY (anon_id) REFERENCES anonymous_users(anon_id),
+  FOREIGN KEY (request_id) REFERENCES usage_events(request_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_usage_events_anon_day ON usage_events(anon_id, day, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_usage_events_day_status ON usage_events(day, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_usage_events_response ON usage_events(response_id);
 CREATE INDEX IF NOT EXISTS idx_usage_files_request ON usage_files(request_id);
+CREATE INDEX IF NOT EXISTS idx_request_research_day ON request_research(day, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_request_research_anon ON request_research(anon_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_interaction_events_day ON interaction_events(day, event_name, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_interaction_events_anon ON interaction_events(anon_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_interaction_events_request ON interaction_events(request_id, created_at DESC);

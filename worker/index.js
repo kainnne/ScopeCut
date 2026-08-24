@@ -10,6 +10,14 @@ const MODEL_MAX_OUTPUT_TOKENS = 128000;
 const FILE_SEARCH_CALL_MICROUSD = 2500;
 const QUOTE_TTL_MS = 30 * 60 * 1000;
 const JOB_TIMEOUT_MS = 5 * 60 * 1000;
+const ADMIN_EMAIL = 'chaos60649@gmail.com';
+const AUTH_SENDER = 'ScopeCut <login@auth.kainnne.com>';
+
+const RESEARCH_EVENTS = new Set([
+  'builder_started', 'quote_viewed', 'generation_started', 'result_viewed',
+  'prompt_toggled', 'prompt_copied', 'project_edit', 'project_restart',
+  'dashboard_public_viewed', 'dashboard_personal_viewed',
+]);
 
 const ACCEPTED_EXTENSIONS = new Set([
   'pdf', 'txt', 'md', 'json', 'html', 'xml', 'csv', 'doc', 'docx', 'rtf', 'odt',
@@ -144,7 +152,7 @@ function randomId(prefix) { return `${prefix}_${crypto.randomUUID().replaceAll('
 
 function allowedEmail(env, email) {
   const allowed = String(env.ALLOWED_EMAILS || '').split(',').map(normalizeEmail).filter(Boolean);
-  return allowed.length > 0 && allowed.includes(normalizeEmail(email));
+  return normalizeEmail(email) === ADMIN_EMAIL && allowed.length === 1 && allowed[0] === ADMIN_EMAIL;
 }
 
 function randomCode() {
@@ -191,6 +199,64 @@ async function sha256(value) {
 
 async function parseJson(request) {
   try { return await request.json(); } catch { return {}; }
+}
+
+function safeCode(value, maximum = 40) {
+  const text = String(value || '');
+  return text.length <= maximum && /^[a-zA-Z0-9_-]*$/.test(text) ? text : '';
+}
+
+function safeCodes(value, maximum = 12) {
+  return Array.isArray(value) ? value.slice(0, maximum).map((item) => safeCode(item)).filter(Boolean) : [];
+}
+
+function sanitizeResearchMeta(raw) {
+  let value = {};
+  try { value = typeof raw === 'string' ? JSON.parse(raw) : raw || {}; } catch {}
+  const source = value.selections && typeof value.selections === 'object' ? value.selections : {};
+  const selections = {
+    projectTypes: safeCodes(source.projectTypes, 3),
+    purpose: safeCode(source.purpose),
+    audienceTypes: safeCodes(source.audienceTypes, 3),
+    scenarioTypes: safeCodes(source.scenarioTypes, 4),
+    format: safeCode(source.format),
+    features: safeCodes(source.features, 8),
+    priorities: safeCodes(source.priorities, 4),
+    styles: safeCodes(source.styles, 4),
+    materialTypes: safeCodes(source.materialTypes, 8),
+  };
+  const rawLengths = value.fieldLengths && typeof value.fieldLengths === 'object' ? value.fieldLengths : {};
+  const fieldLengths = {};
+  for (const key of ['projectName', 'idea', 'objective', 'audience', 'scenario', 'formatOther', 'core', 'styleNotes', 'materials', 'references', 'notes']) {
+    fieldLengths[key] = Math.min(MAX_BRIEF_CHARACTERS, Math.max(0, Number(rawLengths[key]) || 0));
+  }
+  const rawClient = value.client && typeof value.client === 'object' ? value.client : {};
+  const client = {
+    viewport: ['mobile', 'desktop'].includes(rawClient.viewport) ? rawClient.viewport : 'unknown',
+    theme: ['dream', 'dusk'].includes(rawClient.theme) ? rawClient.theme : 'unknown',
+    language: safeCode(String(rawClient.language || '').replaceAll('-', '_'), 16),
+  };
+  const selectedOptionCount = Object.values(selections).reduce((total, item) => total + (Array.isArray(item) ? item.length : item ? 1 : 0), 0);
+  const freeTextFieldCount = Object.values(fieldLengths).filter((length) => length > 0).length;
+  return { selections, fieldLengths, client, selectedOptionCount, freeTextFieldCount, schemaVersion: 1 };
+}
+
+function sanitizeEventMetadata(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const output = {};
+  for (const key of ['promptCharacters', 'estimatedPoints']) {
+    if (Number.isFinite(Number(source[key]))) output[key] = Math.min(1000000, Math.max(0, Number(source[key])));
+  }
+  for (const key of ['inputSize', 'readingMode', 'source']) {
+    const code = safeCode(source[key]);
+    if (code) output[key] = code;
+  }
+  if (typeof source.open === 'boolean') output.open = source.open;
+  return output;
+}
+
+async function privateIpRateKey(prefix, request, env) {
+  return `${prefix}:${base64Url(await hmac(clientIp(request), env.TOKEN_SECRET))}`;
 }
 
 function dailyKey() {
@@ -270,8 +336,8 @@ async function sendOtpEmail(env, email, code) {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'User-Agent': 'ScopeCut/1.0' },
     body: JSON.stringify({
-      from: env.AUTH_FROM || 'ScopeCut <login@auth.kainnne.com>',
-      reply_to: env.AUTH_REPLY_TO || 'ryanzhu@kainnne.com',
+      from: AUTH_SENDER,
+      reply_to: ADMIN_EMAIL,
       to: [email],
       subject: `ScopeCut 管理驗證碼：${code}`,
       text: `你的 ScopeCut 管理驗證碼是：${code}\n\n10 分鐘內有效。`,
@@ -286,8 +352,9 @@ async function requestOtp(request, env) {
   const email = normalizeEmail(rawEmail);
   if (!validEmail(email)) return json({ error: '請輸入有效的 Email' }, 400);
   if (!allowedEmail(env, email)) return json({ error: '此帳號沒有管理權限' }, 403);
+  const ipKey = await privateIpRateKey('otp-ip', request, env);
   const [ipAllowed, emailAllowed] = await Promise.all([
-    consumeRate(env, `otp-ip:${clientIp(request)}`, 5, 60 * 60 * 1000),
+    consumeRate(env, ipKey, 5, 60 * 60 * 1000),
     consumeRate(env, `otp-email:${email}`, 3, 60 * 60 * 1000),
   ]);
   if (!ipAllowed || !emailAllowed) return json({ error: '寄送次數過多，請稍後再試' }, 429);
@@ -302,7 +369,7 @@ async function requestOtp(request, env) {
     `INSERT INTO otp_requests (email, code_hash, expires_at, attempts, sent_at, ip) VALUES (?, ?, ?, 0, ?, ?)
      ON CONFLICT(email) DO UPDATE SET code_hash = excluded.code_hash, expires_at = excluded.expires_at,
        attempts = 0, sent_at = excluded.sent_at, ip = excluded.ip`,
-  ).bind(email, codeHash, now + OTP_TTL_MS, now, clientIp(request)).run();
+  ).bind(email, codeHash, now + OTP_TTL_MS, now, ipKey.slice(7)).run();
   try { await sendOtpEmail(env, email, code); }
   catch (error) {
     await env.DB.prepare('DELETE FROM otp_requests WHERE email = ?').bind(email).run();
@@ -414,15 +481,17 @@ async function quoteProject(request, env) {
   if (!identity) return json({ error: '匿名測試工作階段已失效，請重新整理' }, 401);
   if (!env.OPENAI_API_KEY) return json({ error: 'AI 服務尚未完成設定' }, 503);
   await cleanupExpiredQuotes(env);
+  const ipKey = await privateIpRateKey('quote-ip', request, env);
   const checks = await Promise.all([
     consumeRate(env, `quote-anon:${identity.anonId}`, numberEnv(env, 'ANON_QUOTES_PER_HOUR', 12, 1), 3600000),
-    consumeRate(env, `quote-ip:${clientIp(request)}`, numberEnv(env, 'IP_QUOTES_PER_HOUR', 30, 1), 3600000),
+    consumeRate(env, ipKey, numberEnv(env, 'IP_QUOTES_PER_HOUR', 30, 1), 3600000),
   ]);
   if (checks.includes(false)) return json({ error: '測試請求較多，請稍後再試' }, 429);
 
   const form = await request.formData();
   const brief = String(form.get('brief') || '').trim();
   const visualDetail = String(form.get('visualDetail') || '') === 'high';
+  const research = sanitizeResearchMeta(form.get('researchMeta'));
   if (brief.length < 20) return json({ error: 'Project Brief 內容不足' }, 400);
   if (brief.length > MAX_BRIEF_CHARACTERS) return json({ error: 'Project Brief 內容過長' }, 413);
   const files = form.getAll('files').filter((file) => typeof file?.arrayBuffer === 'function' && file.size > 0);
@@ -453,7 +522,8 @@ async function quoteProject(request, env) {
     });
     const pointCost = numberEnv(env, 'POINT_MICROUSD', 30000, 1);
     const requestId = randomId('req');
-    await env.DB.prepare(
+    const now = Date.now();
+    const statements = [env.DB.prepare(
       `INSERT INTO usage_events (
         request_id, anon_id, day, created_at, status, model, reasoning_effort, reading_mode, visual_detail,
         file_ids_json, input_tokens_estimated, estimated_cost_microusd, estimated_points,
@@ -464,12 +534,20 @@ async function quoteProject(request, env) {
       String(env.OPENAI_REASONING_EFFORT || 'low'), readingMode, visualDetail ? 'high' : 'low',
       JSON.stringify(uploaded), inputTokens, estimatedCost,
       pointsForCost(estimatedCost, pointCost), files.length, totalBytes, costBand(estimatedCost),
-    ).run();
-    if (metadata.length) {
-      await env.DB.batch(metadata.map((file) => env.DB.prepare(
+    ), env.DB.prepare(
+      `INSERT INTO request_research (
+        request_id, anon_id, day, created_at, brief_characters, brief_hash, selected_option_count,
+        free_text_field_count, selections_json, field_lengths_json, client_json, schema_version
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      requestId, identity.anonId, dailyKey(), now, brief.length, await sha256(encoder.encode(brief)),
+      research.selectedOptionCount, research.freeTextFieldCount, JSON.stringify(research.selections),
+      JSON.stringify(research.fieldLengths), JSON.stringify(research.client), research.schemaVersion,
+    )];
+    statements.push(...metadata.map((file) => env.DB.prepare(
         'INSERT INTO usage_files (request_id, file_hash, extension, mime_type, bytes) VALUES (?, ?, ?, ?, ?)',
       ).bind(requestId, file.hash, file.extension, file.mime, file.bytes)));
-    }
+    await env.DB.batch(statements);
     return json({
       ok: true, quoteId: requestId,
       estimatedPoints: pointsForCost(estimatedCost, pointCost),
@@ -534,9 +612,10 @@ async function startGeneration(request, env) {
     await deleteOpenAIResources(env, event);
     return json({ error: '點數估算已過期，請重新估算' }, 410);
   }
+  const ipKey = await privateIpRateKey('generate-ip', request, env);
   const checks = await Promise.all([
     consumeRate(env, `generate-anon:${identity.anonId}`, numberEnv(env, 'ANON_GENERATIONS_PER_HOUR', 10, 1), 3600000),
-    consumeRate(env, `generate-ip:${clientIp(request)}`, numberEnv(env, 'IP_GENERATIONS_PER_HOUR', 20, 1), 3600000),
+    consumeRate(env, ipKey, numberEnv(env, 'IP_GENERATIONS_PER_HOUR', 20, 1), 3600000),
   ]);
   if (checks.includes(false)) return json({ error: '測試生成較頻繁，請稍後再試' }, 429);
 
@@ -738,34 +817,81 @@ async function pollGeneration(request, env, ctx, requestId) {
   });
 }
 
+async function recordInteraction(request, env) {
+  const identity = await anonymousIdentity(request, env);
+  if (!identity) return json({ error: '匿名測試工作階段已失效' }, 401);
+  const body = await parseJson(request);
+  const eventName = String(body.event || '');
+  if (!RESEARCH_EVENTS.has(eventName)) return json({ error: '不支援的研究事件' }, 400);
+  const requestId = /^req_[a-f0-9]{32}$/.test(String(body.requestId || '')) ? String(body.requestId) : null;
+  if (requestId) {
+    const owned = await env.DB.prepare('SELECT request_id FROM usage_events WHERE request_id = ? AND anon_id = ?').bind(requestId, identity.anonId).first();
+    if (!owned) return json({ error: '找不到對應的生成紀錄' }, 404);
+  }
+  const [anonAllowed, ipAllowed] = await Promise.all([
+    consumeRate(env, `event-anon:${identity.anonId}`, 180, 60 * 60 * 1000),
+    privateIpRateKey('event-ip', request, env).then((key) => consumeRate(env, key, 400, 60 * 60 * 1000)),
+  ]);
+  if (!anonAllowed || !ipAllowed) return json({ error: '研究事件較多，請稍後再試' }, 429);
+  const sessionId = safeCode(body.sessionId, 64) || 'unknown';
+  const metadata = sanitizeEventMetadata(body.metadata);
+  await env.DB.prepare(
+    `INSERT INTO interaction_events (event_id, anon_id, request_id, day, created_at, session_id, event_name, metadata_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(randomId('evt'), identity.anonId, requestId, dailyKey(), Date.now(), sessionId, eventName, JSON.stringify(metadata)).run();
+  return json({ ok: true }, 201);
+}
+
 async function publicStats(env) {
   await cleanupStaleJobs(env);
-  const row = await env.DB.prepare('SELECT * FROM daily_system_usage WHERE day = ?').bind(dailyKey()).first() || {};
+  const day = dailyKey();
+  const [row, audience, interaction] = await Promise.all([
+    env.DB.prepare('SELECT * FROM daily_system_usage WHERE day = ?').bind(day).first(),
+    env.DB.prepare('SELECT COUNT(DISTINCT anon_id) AS users FROM usage_events WHERE day = ?').bind(day).first(),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS interactions,
+       SUM(CASE WHEN event_name = 'prompt_copied' THEN 1 ELSE 0 END) AS copies
+       FROM interaction_events WHERE day = ?`,
+    ).bind(day).first(),
+  ]);
+  const usage = row || {};
   const budget = numberEnv(env, 'DAILY_BUDGET_MICROUSD', 3000000, 1);
-  const used = Number(row.actual_cost_microusd || 0) + Number(row.reserved_cost_microusd || 0);
+  const used = Number(usage.actual_cost_microusd || 0) + Number(usage.reserved_cost_microusd || 0);
   return json({
-    ok: true, day: dailyKey(), service: used >= budget ? 'paused' : used >= budget * 0.8 ? 'busy' : 'available',
-    generated: Number(row.success_count || 0), points: Number(row.points_used || 0),
-    bands: { normal: Number(row.normal_count || 0), elevated: Number(row.elevated_count || 0), heavy: Number(row.heavy_count || 0), extreme: Number(row.extreme_count || 0) },
+    ok: true, day, service: used >= budget ? 'paused' : used >= budget * 0.8 ? 'busy' : 'available',
+    generated: Number(usage.success_count || 0), points: Number(usage.points_used || 0),
+    users: Number(audience?.users || 0), copies: Number(interaction?.copies || 0),
+    interactions: Number(interaction?.interactions || 0),
+    bands: { normal: Number(usage.normal_count || 0), elevated: Number(usage.elevated_count || 0), heavy: Number(usage.heavy_count || 0), extreme: Number(usage.extreme_count || 0) },
   });
 }
 
 async function personalStats(request, env) {
   const identity = await anonymousIdentity(request, env);
   if (!identity) return json({ error: '匿名測試工作階段已失效' }, 401);
-  const [today, history] = await Promise.all([
+  const [today, history, interaction] = await Promise.all([
     env.DB.prepare('SELECT * FROM daily_user_usage WHERE anon_id = ? AND day = ?').bind(identity.anonId, dailyKey()).first(),
     env.DB.prepare(
       `SELECT request_id, created_at, status, estimated_points, actual_points, cost_band, latency_ms,
-       file_count, prediction_error_ratio FROM usage_events WHERE anon_id = ? ORDER BY created_at DESC LIMIT 20`,
+       file_count, prediction_error_ratio,
+       (SELECT COUNT(*) FROM interaction_events i WHERE i.request_id = usage_events.request_id) AS interactions,
+       (SELECT COUNT(*) FROM interaction_events i WHERE i.request_id = usage_events.request_id AND i.event_name = 'prompt_copied') AS copies
+       FROM usage_events WHERE anon_id = ? ORDER BY created_at DESC LIMIT 20`,
     ).bind(identity.anonId).all(),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS interactions,
+       SUM(CASE WHEN event_name = 'prompt_copied' THEN 1 ELSE 0 END) AS copies
+       FROM interaction_events WHERE anon_id = ? AND day = ?`,
+    ).bind(identity.anonId, dailyKey()).first(),
   ]);
   return json({
     ok: true, day: dailyKey(), points: Number(today?.points_used || 0), generated: Number(today?.success_count || 0),
+    interactions: Number(interaction?.interactions || 0), copies: Number(interaction?.copies || 0),
     history: (history.results || []).map((item) => ({
       id: item.request_id, createdAt: item.created_at, status: item.status,
       estimatedPoints: item.estimated_points, actualPoints: item.actual_points,
       band: item.cost_band, latencyMs: item.latency_ms, fileCount: item.file_count,
+      interactions: Number(item.interactions || 0), copies: Number(item.copies || 0),
       estimateAccuracy: item.prediction_error_ratio == null ? null : Number(item.prediction_error_ratio),
     })),
   });
@@ -775,23 +901,54 @@ async function adminStats(request, env) {
   if (!await adminIdentity(request, env)) return json({ error: '需要管理者驗證' }, 401);
   const url = new URL(request.url);
   const day = /^\d{4}-\d{2}-\d{2}$/.test(url.searchParams.get('day') || '') ? url.searchParams.get('day') : dailyKey();
-  const [summary, users, events] = await Promise.all([
+  const [summary, users, events, research, interactionCounts, interactions] = await Promise.all([
     env.DB.prepare('SELECT * FROM daily_system_usage WHERE day = ?').bind(day).first(),
     env.DB.prepare(
-      `SELECT anon_id, COUNT(*) AS request_count,
-       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS success_count,
-       SUM(input_tokens_actual) AS input_tokens, SUM(output_tokens_actual) AS output_tokens,
-       SUM(reasoning_tokens_actual) AS reasoning_tokens, SUM(actual_cost_microusd) AS actual_cost_microusd,
-       SUM(actual_points) AS points, AVG(latency_ms) AS average_latency_ms,
-       MAX(actual_cost_microusd) AS max_cost_microusd
-       FROM usage_events WHERE day = ? GROUP BY anon_id ORDER BY actual_cost_microusd DESC LIMIT 100`,
-    ).bind(day).all(),
+      `WITH usage_by_user AS (
+         SELECT anon_id, COUNT(*) AS request_count,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS success_count,
+          SUM(input_tokens_actual) AS input_tokens, SUM(output_tokens_actual) AS output_tokens,
+          SUM(reasoning_tokens_actual) AS reasoning_tokens, SUM(actual_cost_microusd) AS actual_cost_microusd,
+          SUM(actual_points) AS points, AVG(latency_ms) AS average_latency_ms,
+          MAX(actual_cost_microusd) AS max_cost_microusd
+         FROM usage_events WHERE day = ? GROUP BY anon_id
+       ), interaction_by_user AS (
+         SELECT anon_id, COUNT(*) AS interactions,
+          SUM(CASE WHEN event_name = 'prompt_copied' THEN 1 ELSE 0 END) AS copies
+         FROM interaction_events WHERE day = ? GROUP BY anon_id
+       )
+       SELECT usage_by_user.*, COALESCE(interaction_by_user.interactions, 0) AS interactions,
+        COALESCE(interaction_by_user.copies, 0) AS copies
+       FROM usage_by_user LEFT JOIN interaction_by_user USING (anon_id)
+       ORDER BY actual_cost_microusd DESC LIMIT 100`,
+    ).bind(day, day).all(),
     env.DB.prepare(
       `SELECT request_id, anon_id, created_at, started_at, completed_at, status, model, reasoning_effort,
        reading_mode, input_tokens_estimated, input_tokens_actual, cached_input_tokens, output_tokens_actual,
        reasoning_tokens_actual, estimated_cost_microusd, reserved_cost_microusd, actual_cost_microusd,
        estimated_points, actual_points, latency_ms, file_count, total_file_bytes, prediction_error_microusd,
-       prediction_error_ratio, cost_band, error_code FROM usage_events WHERE day = ? ORDER BY created_at DESC LIMIT 250`,
+       prediction_error_ratio, cost_band, error_code,
+       (SELECT brief_characters FROM request_research r WHERE r.request_id = usage_events.request_id) AS brief_characters,
+       (SELECT selected_option_count FROM request_research r WHERE r.request_id = usage_events.request_id) AS selected_option_count,
+       (SELECT free_text_field_count FROM request_research r WHERE r.request_id = usage_events.request_id) AS free_text_field_count,
+       (SELECT selections_json FROM request_research r WHERE r.request_id = usage_events.request_id) AS selections_json,
+       (SELECT field_lengths_json FROM request_research r WHERE r.request_id = usage_events.request_id) AS field_lengths_json,
+       (SELECT client_json FROM request_research r WHERE r.request_id = usage_events.request_id) AS client_json,
+       (SELECT COUNT(*) FROM interaction_events i WHERE i.request_id = usage_events.request_id) AS interaction_count,
+       (SELECT COUNT(*) FROM interaction_events i WHERE i.request_id = usage_events.request_id AND i.event_name = 'prompt_copied') AS copy_count
+       FROM usage_events WHERE day = ? ORDER BY created_at DESC LIMIT 250`,
+    ).bind(day).all(),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS request_count, AVG(brief_characters) AS average_brief_characters,
+       AVG(selected_option_count) AS average_selected_options, AVG(free_text_field_count) AS average_free_text_fields,
+       SUM(CASE WHEN client_json LIKE '%"viewport":"mobile"%' THEN 1 ELSE 0 END) AS mobile_count,
+       SUM(CASE WHEN client_json LIKE '%"viewport":"desktop"%' THEN 1 ELSE 0 END) AS desktop_count
+       FROM request_research WHERE day = ?`,
+    ).bind(day).first(),
+    env.DB.prepare('SELECT event_name, COUNT(*) AS count FROM interaction_events WHERE day = ? GROUP BY event_name ORDER BY count DESC').bind(day).all(),
+    env.DB.prepare(
+      `SELECT event_id, anon_id, request_id, created_at, session_id, event_name, metadata_json
+       FROM interaction_events WHERE day = ? ORDER BY created_at DESC LIMIT 250`,
     ).bind(day).all(),
   ]);
   return json({
@@ -799,8 +956,11 @@ async function adminStats(request, env) {
     day,
     budgetMicrousd: numberEnv(env, 'DAILY_BUDGET_MICROUSD', 3000000, 1),
     summary: summary || {},
+    research: research || {},
+    interactionCounts: Object.fromEntries((interactionCounts.results || []).map((item) => [item.event_name, Number(item.count || 0)])),
     users: users.results || [],
     events: events.results || [],
+    interactions: interactions.results || [],
   });
 }
 
@@ -816,6 +976,7 @@ async function handle(request, env, ctx) {
   if (request.method === 'POST' && url.pathname === '/api/auth/verify') return verifyOtpCode(request, env);
   if (request.method === 'POST' && url.pathname === '/api/quote') return quoteProject(request, env);
   if (request.method === 'POST' && url.pathname === '/api/generate') return startGeneration(request, env);
+  if (request.method === 'POST' && url.pathname === '/api/events') return recordInteraction(request, env);
   if (request.method === 'GET' && url.pathname.startsWith('/api/jobs/')) return pollGeneration(request, env, ctx, decodeURIComponent(url.pathname.slice(10)));
   if (request.method === 'GET' && url.pathname === '/api/stats/public') return publicStats(env);
   if (request.method === 'GET' && url.pathname === '/api/stats/me') return personalStats(request, env);

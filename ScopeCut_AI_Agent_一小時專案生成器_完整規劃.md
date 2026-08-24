@@ -97,6 +97,9 @@
 - 最終同題回歸測試通過：Agent Prompt 使用 HTML、CSS、原生 JavaScript 與 localStorage，明確排除不必要框架，學習知識只出現在作者企劃，正式 Prompt 不再要求程式註解；912 input tokens、2,238 output tokens（含 130 reasoning tokens）、22.345 秒、US$0.02868。
 - 結果頁閱讀順序改為先呈現高對比、可收合且隨時可複製的 Agent Prompt，再呈現專案說明。Agent Prompt 改為結構化的專案目標、成品、核心需求、內容與體驗、工具與執行、完成標準六段，前端分段閱讀，複製時自動組成一份完整 Markdown Prompt。
 - 六段式正式環境測試通過：六個分類皆有具體內容，複製內容可自動重組為完整 Markdown；1,047 input tokens、2,285 output tokens（含 71 reasoning tokens）、27.588 秒、US$0.029514。
+- 匿名研究後台已擴充 `request_research` 與 `interaction_events`：從 quote 開始記錄固定選項結構、各自由輸入欄位長度、Brief 雜湊與字數、裝置級距、主題、模型用量、成本、點數、延遲、附件類型／大小，以及查看結果、展開 Prompt、複製、返回修改與重新開始等事件。
+- 研究資料不保存完整 Brief、完整生成結果、原始附件或明文 IP；rate limit 與 OTP 的 IP 識別改用 HMAC 雜湊。公開 Dashboard 只顯示整體 Projects、匿名使用者、點數、複製與事件數；個人 Dashboard 只顯示目前瀏覽器；完整 token、美元、研究結構與逐筆事件只對管理者開放。
+- 管理後台唯一允許的信箱改為 `chaos60649@gmail.com`，驗證碼固定由 `ScopeCut <login@auth.kainnne.com>` 寄送；程式常數與 Cloudflare `ALLOWED_EMAILS` 同時限制，避免設定漂移誤開權限。
 
 ---
 
